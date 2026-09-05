@@ -11,6 +11,7 @@
 #include "config/config.h"
 #include "document/document.h"
 #include "platform/default_font.h"
+#include "render/content_zoom.h"
 #include "render/slide_overview.h"
 #include "render/slide_transition.h"
 #include "render/text_renderer.h"
@@ -41,6 +42,13 @@ int main(int argc, char** argv) {
   InitWindow(config.default_window_width, config.default_window_height, config.window_title.c_str());
   SetWindowMinSize(config.min_window_width, config.min_window_height);
   SetTargetFPS(60);
+
+  // Disables raylib's built-in "ESC closes the window" handling — ESC still
+  // closes the window (see should_quit below), but only once content zoom
+  // (render/content_zoom.h) isn't active; the first ESC while zoomed resets
+  // it instead. The window's own close button still works regardless of
+  // this: WindowShouldClose() also tracks that independently of the exit key.
+  SetExitKey(KEY_NULL);
 
   FontPaths font_paths = resolve_font_paths(config.bundled_font_path);
   TextRenderer renderer =
@@ -74,6 +82,18 @@ int main(int argc, char** argv) {
   // only paid here and on an actual resize, never during navigation.
   RenderTexture2D transition_from_buffer = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
   RenderTexture2D transition_to_buffer = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+
+  // Interactive content zoom (see render/content_zoom.h) — reuses the same
+  // "render the slide into a texture, then draw that texture" approach as
+  // the transition buffers above, for the same reason: it lets the zoomed
+  // view be drawn with a single scaled DrawTexturePro instead of re-running
+  // the whole text layout at a different scale.
+  ContentZoomState zoom_state;
+  RenderTexture2D zoom_buffer = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+
+  // true once ESC (with no zoom left to reset — see consume_escape_for_
+  // content_zoom) or the window's close button has requested an exit.
+  bool should_quit = false;
 
   // "Overview" mode (clickable grid of thumbnails, see
   // render/slide_overview.h) — activated while Ctrl is held down (see
@@ -117,7 +137,7 @@ int main(int argc, char** argv) {
     EndTextureMode();
   };
 
-  while (!WindowShouldClose()) {
+  while (!WindowShouldClose() && !should_quit) {
     // --- Update ---
     if (poll_file_watch(watch_state, GetTime())) {
       std::optional<Document> reloaded = load_document(args->source_path);
@@ -128,6 +148,7 @@ int main(int argc, char** argv) {
         ensure_extra_fonts_loaded(renderer, deck.codepoints);
         current_slide = std::min(current_slide, static_cast<int>(deck.slides.size()) - 1);
         needs_relayout = true;
+        reset_content_zoom(zoom_state);  // content changed under it — start clean
 
         // The content changed — the grid's thumbnails no longer match it.
         // If the grid is open right now, rebuild immediately (otherwise the
@@ -144,12 +165,16 @@ int main(int argc, char** argv) {
 
     if (IsWindowResized()) {
       needs_relayout = true;
-      // Both transition buffers need to match the window size
-      // (see update_and_draw_transition) — recreate them at the new size.
+      // The transition buffers and the zoom buffer all need to match the
+      // window size (see update_and_draw_transition / draw_zoomed_content)
+      // — recreate them at the new size.
       UnloadRenderTexture(transition_from_buffer);
       UnloadRenderTexture(transition_to_buffer);
+      UnloadRenderTexture(zoom_buffer);
       transition_from_buffer = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
       transition_to_buffer = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+      zoom_buffer = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+      reset_content_zoom(zoom_state);  // simpler than re-deriving a sensible pivot/pan at the new size
     }
 
     // A resize or hot-reload in the middle of a transition invalidates what
@@ -176,9 +201,26 @@ int main(int argc, char** argv) {
       overview_state.active = true;
       overview_state.focused_index = current_slide;
       overview_state.scroll_offset = 0.0f;
+      reset_content_zoom(zoom_state);  // the grid shows every slide at once — zoom doesn't apply there
       if (overview_state.thumbnails_dirty) {
         rebuild_overview_thumbnails(overview_state, deck, renderer, config, image_cache);
       }
+    }
+
+    // Content zoom (see render/content_zoom.h) only makes sense on the
+    // "real" slide — skipped while the overview grid is open (its own
+    // wheel/click handling takes over, see update_slide_overview) or while
+    // a transition is animating between two slides.
+    if (!overview_state.active && !transition_state.active) {
+      update_content_zoom(zoom_state, GetScreenWidth(), GetScreenHeight());
+    }
+
+    // ESC: first closes the zoom if the content is currently zoomed (see
+    // consume_escape_for_content_zoom), otherwise it's the usual "close the
+    // window" request — SetExitKey(KEY_NULL) above disabled raylib's own
+    // handling of this key so this is the only place ESC is acted on.
+    if (IsKeyPressed(KEY_ESCAPE) && !consume_escape_for_content_zoom(zoom_state)) {
+      should_quit = true;
     }
 
     if (overview_state.active) {
@@ -232,6 +274,7 @@ int main(int argc, char** argv) {
         current_slide = next_slide;
         layout = compute_layout_for_slide(current_slide);
         needs_relayout = false;
+        reset_content_zoom(zoom_state);  // zoom is a per-slide inspection tool, doesn't carry to the next one
 
         if (transition != TransitionKind::None) {
           const SlideParams& new_params = deck.slides[current_slide].params;
@@ -247,6 +290,15 @@ int main(int argc, char** argv) {
       needs_relayout = false;
     }
 
+    // Captures the current slide into zoom_buffer whenever it'll be needed
+    // this frame — kept outside BeginDrawing/EndDrawing below, like the
+    // transition buffers above, rather than nesting BeginTextureMode inside
+    // the screen's own Begin/EndDrawing pair.
+    if (!overview_state.active && !transition_state.active && is_content_zoomed(zoom_state)) {
+      render_slide_into_texture(zoom_buffer, layout, deck.slides[current_slide].params, GetScreenWidth(),
+                                 GetScreenHeight());
+    }
+
     // --- Render ---
     BeginDrawing();
     if (overview_state.active) {
@@ -260,7 +312,11 @@ int main(int argc, char** argv) {
     } else {
       const SlideParams& slide_params = deck.slides[current_slide].params;
       ClearBackground(slide_params.bg_color.value_or(config.background_color));
-      draw_centered_text(renderer, layout, GetScreenWidth(), GetScreenHeight(), config, slide_params);
+      if (is_content_zoomed(zoom_state)) {
+        draw_zoomed_content(zoom_state, zoom_buffer, GetScreenWidth(), GetScreenHeight());
+      } else {
+        draw_centered_text(renderer, layout, GetScreenWidth(), GetScreenHeight(), config, slide_params);
+      }
     }
     EndDrawing();
 
@@ -280,6 +336,7 @@ int main(int argc, char** argv) {
   cancel_transition(transition_state);
   UnloadRenderTexture(transition_from_buffer);
   UnloadRenderTexture(transition_to_buffer);
+  UnloadRenderTexture(zoom_buffer);
   unload_slide_overview(overview_state);
   unload_image_cache(image_cache);
   unload_text_renderer(renderer);
