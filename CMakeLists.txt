@@ -44,13 +44,3 @@ target_link_libraries(astral PRIVATE raylib md4c)
 if(NOT WIN32 AND NOT APPLE)
   target_link_libraries(astral PRIVATE PkgConfig::Fontconfig)
 endif()
-
-# assets/ is read at runtime with a relative path (see
-# AppConfig::bundled_font_path and the other paths under assets/fonts) —
-# copies it next to the executable on every build, so "astral" can run
-# directly from the build/ folder with no manual step.
-add_custom_command(TARGET astral POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-          ${CMAKE_CURRENT_SOURCE_DIR}/assets
-          ${CMAKE_BINARY_DIR}/assets
-)
