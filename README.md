@@ -24,9 +24,17 @@ astral slides.md
   `--slide`, capture a slide as a PNG with `--screenshot`, or open straight
   into a clickable grid overview of the whole deck — useful for scripting,
   CI previews, or picking where to start presenting.
+- **Zoom in on the details.** Scroll (or `+`/`-`) to magnify the current
+  slide and drag with the mouse to pan around while zoomed in; double-click,
+  `=`, or Esc snaps back to normal size — useful for pointing out a detail
+  without leaving the slide.
 - **Handles real-world text.** Emoji and CJK/Hangul/Hiragana characters are
   supported via optional dedicated fonts (`--emoji-font`, `--asian-font`),
   loaded only when the deck actually needs them.
+- **Bring your own fonts.** Astral picks up the operating system's default
+  font automatically; `--regular-font`, `--italic-font`, `--bold-font`, and
+  `--mono-font` override any of them individually with your own file, so a
+  deck looks the same wherever it's presented.
 
 ## Advantages over other tools
 
@@ -62,8 +70,22 @@ astral <file.md> [options]
                                Default transition between slides
   --emoji-font <path.ttf>     Font used for emoji glyphs
   --asian-font <path.ttf>     Font used for CJK/Hangul/Hiragana glyphs
+  --regular-font <path.ttf>  Font used for regular text (default: system font)
+  --italic-font <path.ttf>   Font used for italic text (default: system font)
+  --bold-font <path.ttf>     Font used for bold text (default: system font)
+  --mono-font <path.ttf>     Font used for code/monospace text (default: system font)
   --force-overview            Start in the grid overview mode
 ```
+
+`--regular-font`/`--italic-font`/`--bold-font`/`--mono-font` are independent of
+each other — pass only the ones you want to override, the rest keep using
+the operating system's default. A path that doesn't exist is a hard error
+(logged to stderr), not a silent fallback.
+
+While presenting: the arrow keys move between slides, the mouse wheel (or
+`+`/`-`) zooms into the current slide, dragging pans around it while zoomed,
+and double-click / `=` / Esc resets the zoom — a second Esc (with nothing
+left to reset) closes the window. Holding Ctrl opens the grid overview.
 
 See `demo/` for sample decks demonstrating headings, inline styles,
 lists, tables, code blocks, images, per-slide colors/alignment, and emoji

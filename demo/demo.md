@@ -110,15 +110,8 @@ deck's own directory:
 
 ![Mountain lake, generated placeholder art](mountain-lake.png)
 
-$[align=center,transition=fade]
-## More image support
 
-Any common image format works — here's a second placeholder, made of
-plain geometric shapes:
-
-![Abstract shapes, generated placeholder art](shapes.png)
-
-$[align=center,transition=slide]
+$[align=center,bg-color=#11182a,text-color=#f5a623,block-color=#22325a]
 ## Emoji
 
 Emoji render through an optional dedicated font, loaded only if the deck
@@ -128,7 +121,7 @@ actually uses one:
 
 🎉 🚀 ❤️ 👍 🌍 😀 ✨
 
-$[align=center,transition=slide]
+$[align=center,bg-color=#fafafa,text-color=#1a1a1a,block-color=#d5d2cf]
 ## CJK and other scripts
 
 A second optional font extends coverage to Chinese, Japanese, and Korean
