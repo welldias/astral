@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cctype>
 
+#include "render/mermaid_render.h"
+
 namespace {
 
 constexpr float kFontShrinkStep = 2.0f;
@@ -244,22 +246,30 @@ TextLine measure_table_cell(const TableCell *cell, const FontSet &fonts, float f
     return wrap_words_to_lines(words, fonts, font_size, kUnboundedTableCellWidth)[0];
 }
 
+// Joins every span's raw text into one string, stripping a single
+// trailing '\n' if present — fenced code blocks (and mermaid diagrams,
+// which share the same underlying md4c code-block parsing) always end
+// their last line with '\n'; without stripping it we'd end up with an
+// extra blank line (layout_code_lines) or a trailing newline in the
+// diagram source handed to nixie (see ensure_mermaid_image_loaded).
+std::string join_span_text(const std::vector<TextSpan> &spans) {
+    std::string raw;
+    for (const TextSpan &span : spans) {
+        raw += span.text;
+    }
+    if (!raw.empty() && raw.back() == '\n') {
+        raw.pop_back();
+    }
+    return raw;
+}
+
 // Code block: each line of the original text (split by '\n') becomes its
 // own TextLine, with content preserved literally (indentation and internal
 // spaces included) — no reflow. If a line is too wide, it overflows
 // horizontally (accepted; contributes to block_width and triggers the same
 // font-shrink as the rest of the layout).
 std::vector<TextLine> layout_code_lines(const std::vector<TextSpan> &spans, const Font &mono_font, float font_size) {
-    std::string raw;
-    for (const TextSpan &span : spans) {
-        raw += span.text;
-    }
-
-    // Fenced code blocks always end the last line with '\n'; without this
-    // we'd end up with an extra blank line at the end of the block.
-    if (!raw.empty() && raw.back() == '\n') {
-        raw.pop_back();
-    }
+    std::string raw = join_span_text(spans);
 
     float spacing = text_spacing(font_size);
     std::vector<TextLine> lines;
@@ -290,7 +300,25 @@ std::vector<TextLine> layout_code_lines(const std::vector<TextSpan> &spans, cons
     return lines;
 }
 
-TextLayoutResult layout_at_font_size(const std::vector<ContentBlock> &content, const FontSet &fonts, const AppConfig &config, float base_font_size, float max_width, float available_height, ImageCache &image_cache) {
+// Sizes an already-loaded image (or a successfully-rendered mermaid
+// diagram, see the is_mermaid branch below) to the largest scale, keeping
+// its aspect ratio, that fits within kImageMaxWidthFraction of max_width
+// and kImageMaxHeightFraction of available_height — never upscaled beyond
+// its native size (see the field comments on LayoutBlock::image_width/
+// image_height in text_layout.h). Pushes the single empty "line" the
+// generic block width/height accumulation below expects.
+void fit_image_block(LayoutBlock &layout_block, float natural_width, float natural_height, float max_width, float available_height) {
+    float scale_to_fit        = std::min({ max_width * kImageMaxWidthFraction / natural_width, available_height * kImageMaxHeightFraction / natural_height, 1.0f });
+    layout_block.image_width  = natural_width * scale_to_fit;
+    layout_block.image_height = natural_height * scale_to_fit;
+    layout_block.line_height  = layout_block.image_height;
+
+    TextLine image_line;
+    image_line.width = layout_block.image_width;
+    layout_block.lines.push_back(std::move(image_line));
+}
+
+TextLayoutResult layout_at_font_size(const std::vector<ContentBlock> &content, const FontSet &fonts, const AppConfig &config, float base_font_size, float max_width, float available_height, ImageCache &image_cache, const std::string &mermaid_font_path, std::optional<ThemeKind> theme) {
     TextLayoutResult result;
     result.block_width  = 0.0f;
     result.block_height = 0.0f;
@@ -305,6 +333,7 @@ TextLayoutResult layout_at_font_size(const std::vector<ContentBlock> &content, c
         bool is_block_quote               = content_block.kind == BlockKind::BlockQuote;
         bool is_list_item                 = content_block.kind == BlockKind::ListItem;
         bool is_image                     = content_block.kind == BlockKind::Image;
+        bool is_mermaid                   = content_block.kind == BlockKind::Mermaid;
         bool is_table                     = content_block.kind == BlockKind::Table;
         float scale                       = 1.0f;
         if (is_heading) {
@@ -379,22 +408,12 @@ TextLayoutResult layout_at_font_size(const std::vector<ContentBlock> &content, c
             layout_block.image_texture = texture;
 
             if (texture != nullptr && texture->width > 0 && texture->height > 0) {
-                // Image loaded: a single empty "line" (no runs, just the final
-                // drawing width) — reuses the same block width/height accumulation
+                // Image loaded: reuses the same block width/height accumulation
                 // that any other block type already uses right below
                 // (block_max_line_width / lines.size() * line_height). What
                 // actually draws it is render/text_renderer.cpp, using
                 // image_texture/image_width/image_height.
-                float natural_width       = static_cast<float>(texture->width);
-                float natural_height      = static_cast<float>(texture->height);
-                float scale_to_fit        = std::min({ max_width * kImageMaxWidthFraction / natural_width, available_height * kImageMaxHeightFraction / natural_height, 1.0f });
-                layout_block.image_width  = natural_width * scale_to_fit;
-                layout_block.image_height = natural_height * scale_to_fit;
-                layout_block.line_height  = layout_block.image_height;
-
-                TextLine image_line;
-                image_line.width = layout_block.image_width;
-                layout_block.lines.push_back(std::move(image_line));
+                fit_image_block(layout_block, static_cast<float>(texture->width), static_cast<float>(texture->height), max_width, available_height);
             } else {
                 // Image not found/not loaded: falls back to the alt text, treated
                 // as a normal paragraph (same reflow, same font) — the text
@@ -402,6 +421,32 @@ TextLayoutResult layout_at_font_size(const std::vector<ContentBlock> &content, c
                 layout_block.line_height = font_size * config.line_height_multiplier;
                 std::vector<Word> words  = tokenize_words(content_block.spans, false, false);
                 layout_block.lines       = wrap_words_to_lines(words, fonts, font_size, max_width);
+            }
+        } else if (is_mermaid) {
+            std::string mermaid_source = join_span_text(content_block.spans);
+            const Texture2D *texture   = ensure_mermaid_image_loaded(image_cache, mermaid_source, mermaid_font_path, theme);
+
+            if (texture != nullptr && texture->width > 0 && texture->height > 0) {
+                // Rendered successfully: from here on, treated exactly like a
+                // loaded BlockKind::Image (same drawing path in
+                // render/text_renderer.cpp) — is_image is set here, not at the
+                // top of the loop, since content_block.kind is Mermaid, not
+                // Image.
+                layout_block.is_image      = true;
+                layout_block.image_texture = texture;
+                fit_image_block(layout_block, static_cast<float>(texture->width), static_cast<float>(texture->height), max_width, available_height);
+            } else {
+                // nixie couldn't parse/render the diagram: falls back to
+                // showing its raw source, same treatment as a plain
+                // BlockKind::CodeBlock — a visible signal that something's
+                // off, without a dedicated error UI (mirrors BlockKind::Image
+                // falling back to its alt text above).
+                layout_block.is_code_block = true;
+                layout_block.line_height   = font_size * config.line_height_multiplier;
+                layout_block.lines         = layout_code_lines(content_block.spans, fonts.mono, font_size);
+                float padding              = font_size * kCodeBlockPaddingFraction;
+                block_extra_width          = 2.0f * padding;
+                block_extra_height         = 2.0f * padding;
             }
         } else if (is_table) {
             float text_line_height          = font_size * config.line_height_multiplier;
@@ -518,14 +563,14 @@ const Font &select_styled_font(bool bold, bool italic, bool code, GlyphFontKind 
     return fonts.regular;
 }
 
-TextLayoutResult compute_fitted_layout(const std::vector<ContentBlock> &content, const FontSet &fonts, const AppConfig &config, float initial_font_size, float available_width, float available_height, ImageCache &image_cache) {
+TextLayoutResult compute_fitted_layout(const std::vector<ContentBlock> &content, const FontSet &fonts, const AppConfig &config, float initial_font_size, float available_width, float available_height, ImageCache &image_cache, const std::string &mermaid_font_path, std::optional<ThemeKind> theme) {
     float font_size = std::clamp(initial_font_size, config.min_font_size, config.max_font_size);
 
-    TextLayoutResult result = layout_at_font_size(content, fonts, config, font_size, available_width, available_height, image_cache);
+    TextLayoutResult result = layout_at_font_size(content, fonts, config, font_size, available_width, available_height, image_cache, mermaid_font_path, theme);
 
     while (font_size > config.min_font_size && (result.block_height > available_height || result.block_width > available_width)) {
         font_size = std::max(config.min_font_size, font_size - kFontShrinkStep);
-        result    = layout_at_font_size(content, fonts, config, font_size, available_width, available_height, image_cache);
+        result    = layout_at_font_size(content, fonts, config, font_size, available_width, available_height, image_cache, mermaid_font_path, theme);
     }
 
     return result;

@@ -271,7 +271,16 @@ int enter_block_callback(MD_BLOCKTYPE type, void *detail, void *userdata) {
     }
 
     if (type == MD_BLOCK_CODE) {
-        ctx->blocks->push_back(ContentBlock{ .kind = BlockKind::CodeBlock });
+        // A fence's info string ("```mermaid") is what distinguishes a
+        // mermaid diagram from a regular code block — any other language
+        // (or none, or an indented code block, which has no fence at all)
+        // falls back to the existing CodeBlock handling unchanged. The
+        // diagram's source text itself needs no dedicated field: it
+        // arrives via the same text_callback -> spans path as CodeBlock's
+        // text (see render/mermaid_render.h for how it's later rendered).
+        auto *code_detail = static_cast<MD_BLOCK_CODE_DETAIL *>(detail);
+        std::string lang(code_detail->lang.text, code_detail->lang.size);
+        ctx->blocks->push_back(ContentBlock{ .kind = lang == "mermaid" ? BlockKind::Mermaid : BlockKind::CodeBlock });
         return 0;
     }
 
@@ -463,7 +472,10 @@ StyleUsage detect_style_usage(const std::vector<ContentBlock> &content) {
     StyleUsage usage{ false, false, false, false };
 
     for (const ContentBlock &block : content) {
-        if (block.kind == BlockKind::CodeBlock) {
+        if (block.kind == BlockKind::CodeBlock || block.kind == BlockKind::Mermaid) {
+            // Mermaid also needs the mono font loaded: its render-failure
+            // fallback draws the raw diagram source exactly like a code
+            // block (see text/text_layout.cpp).
             usage.code = true;
             continue;
         }

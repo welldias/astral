@@ -13,6 +13,12 @@ astral slides.md
 - **Write slides as text.** Headings, bold/italic, lists, tables, code
   blocks, blockquotes, and images all map directly to slide content, using
   the Markdown you already know.
+- **Diagrams from text, too.** A ` ```mermaid ` fenced block is rendered as
+  a diagram (flowchart, sequence, class, state, ER, or XY chart) using
+  [nixie](https://github.com/welldias/nixie-lib), composited as a
+  transparent image that automatically picks up the deck's active
+  `--theme` colors. A diagram nixie can't parse falls back to showing its
+  source as a regular code block, instead of failing the whole slide.
 - **Live reload while you write.** Astral watches the file and re-renders
   automatically the moment you save, so you can iterate on a deck in your
   editor and see the result instantly, side by side.

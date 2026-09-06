@@ -2,10 +2,12 @@
 
 #include <raylib.h>
 
+#include <optional>
 #include <vector>
 
 #include "assets/image_cache.h"
 #include "config/config.h"
+#include "config/theme.h"
 #include "render/text_renderer.h"
 #include "slides/slide_deck.h"
 
@@ -36,7 +38,7 @@ struct SlideOverviewState {
 // opens with thumbnails_dirty == true, and immediately (even with the grid
 // already open) if a hot-reload happens while state.active is true — so
 // stale thumbnails aren't left visible on screen.
-void rebuild_overview_thumbnails(SlideOverviewState &state, const SlideDeck &deck, const TextRenderer &renderer, const AppConfig &config, ImageCache &image_cache);
+void rebuild_overview_thumbnails(SlideOverviewState &state, const SlideDeck &deck, const TextRenderer &renderer, const AppConfig &config, ImageCache &image_cache, std::optional<ThemeKind> theme);
 
 // Updates focus/scroll from mouse and keyboard — call on every frame where
 // state.active is true, before drawing. window_width/window_height are the
@@ -51,11 +53,15 @@ void update_slide_overview(SlideOverviewState &state, const SlideDeck &deck, int
 // addition to the normal confirmation on releasing Ctrl.
 bool overview_consume_click(SlideOverviewState &state, int window_width, int window_height, const SlideDeck &deck);
 
-// Draws the grid (background `background`, each thumbnail, highlight on
-// the focused one) — assumes BeginDrawing() was already called; draws to
-// the screen, not a RenderTexture. `background` is the background color of
-// the slide currently being shown (see main.cpp), so opening the grid
-// doesn't break visual continuity.
-void draw_slide_overview(const SlideOverviewState &state, int window_width, int window_height, Color background);
+// Draws the grid (background `background`, each thumbnail framed with
+// `frame_color`, highlight on the focused one) — assumes BeginDrawing() was
+// already called; draws to the screen, not a RenderTexture. `background` is
+// the background color of the slide currently being shown (see main.cpp),
+// so opening the grid doesn't break visual continuity. `frame_color` is a
+// thin outline drawn around every thumbnail (regardless of focus) —
+// intended to be AppConfig::code_background_color, so the frame reads as
+// part of the deck's own palette and delimits each thumbnail from the
+// grid's background.
+void draw_slide_overview(const SlideOverviewState &state, int window_width, int window_height, Color background, Color frame_color);
 
 void unload_slide_overview(SlideOverviewState &state);

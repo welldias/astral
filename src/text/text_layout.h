@@ -2,11 +2,13 @@
 
 #include <raylib.h>
 
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "assets/image_cache.h"
 #include "config/config.h"
+#include "config/theme.h"
 #include "markdown/markdown_parser.h"
 #include "text/glyph_class.h"
 
@@ -235,9 +237,15 @@ const Font &select_styled_font(bool bold, bool italic, bool code, GlyphFontKind 
 // font in the auto-shrink below — see
 // kImageMaxWidthFraction/kImageMaxHeightFraction, it's already sized to
 // fit within the available space from the start); without the image, it
-// falls back to the alt text, treated as a normal paragraph. A table
-// doesn't reflow (each cell is a single line, no wrapping) and the header
-// is always drawn in bold, like the headings.
+// falls back to the alt text, treated as a normal paragraph. A mermaid
+// diagram (BlockKind::Mermaid) is rendered through
+// render/mermaid_render.h::ensure_mermaid_image_loaded (using
+// `mermaid_font_path` and `theme`, cached in `image_cache` same as a
+// regular image) and, once rendered, sized exactly like a BlockKind::Image;
+// if nixie fails to render it, falls back to showing its raw source as a
+// BlockKind::CodeBlock would. A table doesn't reflow (each cell is a
+// single line, no wrapping) and the header is always drawn in bold, like
+// the headings.
 //
 // Starts at the paragraph font size `initial_font_size` and shrinks that
 // size in steps — keeping the proportion between paragraph, headings and
@@ -245,4 +253,4 @@ const Font &select_styled_font(bool bold, bool italic, bool code, GlyphFontKind 
 // `available_width` x `available_height`, or until it reaches
 // config.min_font_size (floor — residual overflow is accepted in that
 // case).
-TextLayoutResult compute_fitted_layout(const std::vector<ContentBlock> &content, const FontSet &fonts, const AppConfig &config, float initial_font_size, float available_width, float available_height, ImageCache &image_cache);
+TextLayoutResult compute_fitted_layout(const std::vector<ContentBlock> &content, const FontSet &fonts, const AppConfig &config, float initial_font_size, float available_width, float available_height, ImageCache &image_cache, const std::string &mermaid_font_path, std::optional<ThemeKind> theme);

@@ -47,4 +47,10 @@ void unload_image_cache(ImageCache &cache) {
     }
     cache.loaded.clear();
     cache.failed.clear();
+
+    for (auto &[source, texture] : cache.mermaid_loaded) {
+        UnloadTexture(texture);
+    }
+    cache.mermaid_loaded.clear();
+    cache.mermaid_failed.clear();
 }

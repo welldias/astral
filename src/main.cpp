@@ -150,7 +150,7 @@ int main(int argc, char **argv) {
     if (args->force_overview) {
         overview_state.active        = true;
         overview_state.focused_index = current_slide;
-        rebuild_overview_thumbnails(overview_state, deck, renderer, config, image_cache);
+        rebuild_overview_thumbnails(overview_state, deck, renderer, config, image_cache, args->theme);
     }
 
     // Layout of slide `slide_index` at the current window size — used both
@@ -165,7 +165,7 @@ int main(int argc, char **argv) {
         float available_width  = static_cast<float>(window_width) - 2.0f * config.margin_x;
         float available_height = static_cast<float>(window_height) - 2.0f * config.margin_y;
 
-        return compute_fitted_layout(deck.slides[slide_index].content, renderer.fonts, config, initial_font_size, available_width, available_height, image_cache);
+        return compute_fitted_layout(deck.slides[slide_index].content, renderer.fonts, config, initial_font_size, available_width, available_height, image_cache, renderer.font_paths.regular, args->theme);
     };
 
     // Renders a slide that already has its layout computed into `target`
@@ -199,7 +199,7 @@ int main(int argc, char **argv) {
                 overview_state.thumbnails_dirty = true;
                 overview_state.focused_index    = std::min(overview_state.focused_index, static_cast<int>(deck.slides.size()) - 1);
                 if (overview_state.active) {
-                    rebuild_overview_thumbnails(overview_state, deck, renderer, config, image_cache);
+                    rebuild_overview_thumbnails(overview_state, deck, renderer, config, image_cache, args->theme);
                 }
             }
         }
@@ -244,7 +244,7 @@ int main(int argc, char **argv) {
             overview_state.scroll_offset = 0.0f;
             reset_content_zoom(zoom_state); // the grid shows every slide at once — zoom doesn't apply there
             if (overview_state.thumbnails_dirty) {
-                rebuild_overview_thumbnails(overview_state, deck, renderer, config, image_cache);
+                rebuild_overview_thumbnails(overview_state, deck, renderer, config, image_cache, args->theme);
             }
         }
 
@@ -343,7 +343,7 @@ int main(int argc, char **argv) {
             // shown (not a fixed generic color), so opening the grid doesn't
             // break visual continuity.
             Color current_bg = deck.slides[current_slide].params.bg_color.value_or(config.background_color);
-            draw_slide_overview(overview_state, GetScreenWidth(), GetScreenHeight(), current_bg);
+            draw_slide_overview(overview_state, GetScreenWidth(), GetScreenHeight(), current_bg, config.code_background_color);
         } else if (transition_state.active) {
             update_and_draw_transition(transition_state, config, GetTime(), transition_from_buffer, transition_to_buffer);
         } else {

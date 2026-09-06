@@ -64,6 +64,80 @@ function fib(n) {
 }
 ```
 
+$[align=center]
+## Mermaid ER diagram
+
+```mermaid
+erDiagram
+  STUDENT {
+    int id PK
+    string name
+    date dob
+    string grade
+  }
+  TEACHER {
+    int id PK
+    string name
+    string department
+  }
+  COURSE {
+    int id PK
+    string title
+    int teacher_id FK
+    int credits
+  }
+  ENROLLMENT {
+    int id PK
+    int student_id FK
+    int course_id FK
+    string semester
+    float grade
+  }
+  TEACHER ||--o{ COURSE : teaches
+  STUDENT ||--o{ ENROLLMENT : enrolled
+  COURSE ||--o{ ENROLLMENT : has
+```
+
+$[align=center]
+## graph TD
+
+```mermaid
+graph TD
+  A[Start] --> B{Decision}
+  B -->|Yes| C[Accept]
+  B -->|No| D[Reject]
+  C --> E[Done]
+  D --> E
+  linkStyle 0 stroke:#7aa2f7,stroke-width:3px
+  linkStyle 1 stroke:#9ece6a,stroke-width:2px
+  linkStyle 2 stroke:#f7768e,stroke-width:2px
+  linkStyle default stroke:#565f89
+```
+
+$[align=center]
+## and sequence diagrams
+
+```mermaid
+sequenceDiagram
+  participant A as Alice
+  participant B as Bob
+  participant C as Charlie
+  A->>B: Hello
+  B->>C: Forward
+  C-->>A: Reply
+```
+
+$[]
+## XY diagram
+
+```mermaid
+xychart-beta horizontal
+    title "Budget vs Actual"
+    x-axis [Eng, Sales, Marketing, Product, Ops, HR, Finance, Legal]
+    bar [500, 350, 250, 200, 150, 120, 100, 80]
+    line [480, 380, 230, 180, 160, 110, 95, 75]
+```
+
 $[align=left]
 ## Lists
 

@@ -11,9 +11,10 @@ namespace {
 constexpr int kThumbnailWidth  = 427; // config.default_window_width / 3
 constexpr int kThumbnailHeight = 240; // config.default_window_height / 3
 
-constexpr float kCellPadding          = 16.0f; // breathing room between cells and at the grid's edges
-constexpr float kFocusBorderThickness = 4.0f;
-constexpr float kScrollSpeed          = 60.0f; // pixels per mouse wheel "click"
+constexpr float kCellPadding             = 16.0f; // breathing room between cells and at the grid's edges
+constexpr float kThumbnailFrameThickness = 2.0f;  // thin outline drawn around every thumbnail (see draw_slide_overview)
+constexpr float kFocusBorderThickness    = 4.0f;
+constexpr float kScrollSpeed             = 60.0f; // pixels per mouse wheel "click"
 
 // A RenderTexture2D's `.texture` is stored bottom-up (OpenGL convention) —
 // a negative height on the source rectangle undoes that when drawing with
@@ -85,7 +86,7 @@ void unload_thumbnail_textures(SlideOverviewState &state) {
 
 } // namespace
 
-void rebuild_overview_thumbnails(SlideOverviewState &state, const SlideDeck &deck, const TextRenderer &renderer, const AppConfig &config, ImageCache &image_cache) {
+void rebuild_overview_thumbnails(SlideOverviewState &state, const SlideDeck &deck, const TextRenderer &renderer, const AppConfig &config, ImageCache &image_cache, std::optional<ThemeKind> theme) {
     unload_thumbnail_textures(state);
     state.thumbnails.reserve(deck.slides.size());
 
@@ -102,7 +103,7 @@ void rebuild_overview_thumbnails(SlideOverviewState &state, const SlideDeck &dec
     float available_height  = static_cast<float>(kThumbnailHeight) - 2.0f * config.margin_y * scale;
 
     for (const Slide &slide : deck.slides) {
-        TextLayoutResult layout = compute_fitted_layout(slide.content, renderer.fonts, config, initial_font_size, available_width, available_height, image_cache);
+        TextLayoutResult layout = compute_fitted_layout(slide.content, renderer.fonts, config, initial_font_size, available_width, available_height, image_cache, renderer.font_paths.regular, theme);
 
         RenderTexture2D target = LoadRenderTexture(kThumbnailWidth, kThumbnailHeight);
         BeginTextureMode(target);
@@ -183,7 +184,7 @@ bool overview_consume_click(SlideOverviewState &state, int window_width, int win
     return true;
 }
 
-void draw_slide_overview(const SlideOverviewState &state, int window_width, int window_height, Color background) {
+void draw_slide_overview(const SlideOverviewState &state, int window_width, int window_height, Color background, Color frame_color) {
     ClearBackground(background);
 
     int slide_count = static_cast<int>(state.thumbnails.size());
@@ -201,6 +202,11 @@ void draw_slide_overview(const SlideOverviewState &state, int window_width, int 
         }
         const Texture2D &texture = state.thumbnails[static_cast<size_t>(i)].texture;
         DrawTexturePro(texture, flipped_source(texture), dest, Vector2{ 0.0f, 0.0f }, 0.0f, WHITE);
+        // A thin frame around every thumbnail (regardless of focus), same
+        // color as the code-block highlight — delimits the thumbnail from
+        // the grid's own background, which can otherwise read as one
+        // continuous area when both are close in color (e.g. a dark theme).
+        DrawRectangleLinesEx(dest, kThumbnailFrameThickness, frame_color);
     }
 
     int focused            = std::clamp(state.focused_index, 0, slide_count - 1);

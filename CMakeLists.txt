@@ -39,7 +39,7 @@ add_executable(astral ${SOURCES})
 
 target_include_directories(astral PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-target_link_libraries(astral PRIVATE raylib md4c)
+target_link_libraries(astral PRIVATE raylib md4c nixie)
 
 if(NOT WIN32 AND NOT APPLE)
   target_link_libraries(astral PRIVATE PkgConfig::Fontconfig)

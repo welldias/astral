@@ -15,6 +15,9 @@ enum class BlockKind {
     ListItem,      // list item ("* text"/"1. text"), possibly nested
     Image,         // "![alt](path)" alone in the paragraph; alt becomes the textual fallback (see spans)
     Table,         // GFM table ("| a | b |\n|---|---|\n| 1 | 2 |"); see ContentBlock::table_rows
+    Mermaid,       // ```mermaid ... ```; diagram source verbatim in spans, same as CodeBlock (see
+                   // render/mermaid_render.h) — rendered to an image, or falls back to CodeBlock-style
+                   // text if the diagram fails to render (see text/text_layout.cpp)
 };
 
 struct TextSpan {
@@ -76,12 +79,14 @@ struct ContentBlock {
 
 // Parses `source` as Markdown (via md4c) and returns the sequence of blocks
 // found. At this stage: heading (#), paragraph, code block (``` ```),
-// thematic break (---), blockquote (> text), ordered and unordered lists
-// (nestable), image ("![alt](path)"), GFM table (with per-column alignment
-// via ":" in the delimiter line — see ContentBlock::table_column_align),
-// and the inline styles bold (**text**), italic (*text*), bold-italic
-// (***text***), strikethrough (~~text~~) and code (`text`) all get
-// dedicated handling; any other block type without dedicated handling yet
+// mermaid diagram (```mermaid ... ```, detected from the fence's info
+// string — see BlockKind::Mermaid), thematic break (---), blockquote
+// (> text), ordered and unordered lists (nestable), image ("![alt](path)"),
+// GFM table (with per-column alignment via ":" in the delimiter line — see
+// ContentBlock::table_column_align), and the inline styles bold (**text**),
+// italic (*text*), bold-italic (***text***), strikethrough (~~text~~) and
+// code (`text`) all get dedicated handling; any other block type without
+// dedicated handling yet
 // is reduced to a paragraph block with its text, so as not to lose content.
 //
 // "![alt](path \"comment\")" only becomes BlockKind::Image when it's the
