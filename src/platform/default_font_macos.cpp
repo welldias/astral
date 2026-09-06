@@ -10,20 +10,20 @@
 namespace {
 
 std::string font_file_path(CTFontRef font) {
-  if (font == nullptr) {
-    return "";
-  }
-
-  std::string result;
-  CFURLRef url = static_cast<CFURLRef>(CTFontCopyAttribute(font, kCTFontURLAttribute));
-  if (url != nullptr) {
-    char path_buffer[1024];
-    if (CFURLGetFileSystemRepresentation(url, true, reinterpret_cast<UInt8*>(path_buffer), sizeof(path_buffer))) {
-      result = path_buffer;
+    if (font == nullptr) {
+        return "";
     }
-    CFRelease(url);
-  }
-  return result;
+
+    std::string result;
+    CFURLRef url = static_cast<CFURLRef>(CTFontCopyAttribute(font, kCTFontURLAttribute));
+    if (url != nullptr) {
+        char path_buffer[1024];
+        if (CFURLGetFileSystemRepresentation(url, true, reinterpret_cast<UInt8 *>(path_buffer), sizeof(path_buffer))) {
+            result = path_buffer;
+        }
+        CFRelease(url);
+    }
+    return result;
 }
 
 // Requests the default UI font variant that satisfies `traits` (e.g.
@@ -31,57 +31,57 @@ std::string font_file_path(CTFontRef font) {
 // there's no face that exactly satisfies the requested traits; in that
 // case we return "" (the caller must not synthesize the effect).
 std::string match_variant(CTFontSymbolicTraits traits) {
-  CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, 0.0, nullptr);
-  if (font == nullptr) {
-    return "";
-  }
+    CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, 0.0, nullptr);
+    if (font == nullptr) {
+        return "";
+    }
 
-  if (traits == 0) {
-    std::string result = font_file_path(font);
+    if (traits == 0) {
+        std::string result = font_file_path(font);
+        CFRelease(font);
+        return result;
+    }
+
+    CTFontRef variant_font = CTFontCreateCopyWithSymbolicTraits(font, 0.0, nullptr, traits, traits);
     CFRelease(font);
+    if (variant_font == nullptr) {
+        return "";
+    }
+
+    CTFontSymbolicTraits actual_traits = CTFontGetSymbolicTraits(variant_font);
+    std::string result                 = ((actual_traits & traits) == traits) ? font_file_path(variant_font) : "";
+
+    CFRelease(variant_font);
     return result;
-  }
-
-  CTFontRef variant_font = CTFontCreateCopyWithSymbolicTraits(font, 0.0, nullptr, traits, traits);
-  CFRelease(font);
-  if (variant_font == nullptr) {
-    return "";
-  }
-
-  CTFontSymbolicTraits actual_traits = CTFontGetSymbolicTraits(variant_font);
-  std::string result = ((actual_traits & traits) == traits) ? font_file_path(variant_font) : "";
-
-  CFRelease(variant_font);
-  return result;
 }
 
-}  // namespace
+} // namespace
 
 std::string get_system_default_font_path() {
-  return match_variant(0);
+    return match_variant(0);
 }
 
 std::string get_system_bold_font_path() {
-  return match_variant(kCTFontBoldTrait);
+    return match_variant(kCTFontBoldTrait);
 }
 
 std::string get_system_italic_font_path() {
-  return match_variant(kCTFontItalicTrait);
+    return match_variant(kCTFontItalicTrait);
 }
 
 std::string get_system_bold_italic_font_path() {
-  return match_variant(kCTFontBoldTrait | kCTFontItalicTrait);
+    return match_variant(kCTFontBoldTrait | kCTFontItalicTrait);
 }
 
 std::string get_system_monospace_font_path() {
-  // kCTFontUIFontUserFixedPitch is the system's default monospace font
-  // (the monospace equivalent of kCTFontUIFontSystem).
-  CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontUserFixedPitch, 0.0, nullptr);
-  if (font == nullptr) {
-    return "";
-  }
+    // kCTFontUIFontUserFixedPitch is the system's default monospace font
+    // (the monospace equivalent of kCTFontUIFontSystem).
+    CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontUserFixedPitch, 0.0, nullptr);
+    if (font == nullptr) {
+        return "";
+    }
 
-  std::string result = font_file_path(font);
-  CFRelease(font);
-  return result;
+    std::string result = font_file_path(font);
+    CFRelease(font);
+    return result;
 }

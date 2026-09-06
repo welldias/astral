@@ -16,11 +16,11 @@ std::string get_system_bold_italic_font_path();
 std::string get_system_monospace_font_path();
 
 struct FontPaths {
-  std::string regular;
-  std::string bold;
-  std::string italic;
-  std::string bold_italic;
-  std::string mono;  // empty when the OS has no monospace font: use raylib's built-in font, not the regular one
+    std::string regular;
+    std::string bold;
+    std::string italic;
+    std::string bold_italic;
+    std::string mono; // empty when the OS has no monospace font: use raylib's built-in font, not the regular one
 };
 
 // Resolves the 5 system font variants. Bold/italic/bold-italic follow
@@ -31,4 +31,4 @@ struct FontPaths {
 // `bundled_font_path`. Each fallback logs a warning to stderr.
 // Implemented in default_font_resolve.cpp, compiled on every OS (doesn't
 // depend on any platform-specific API).
-FontPaths resolve_font_paths(const std::string& bundled_font_path);
+FontPaths resolve_font_paths(const std::string &bundled_font_path);

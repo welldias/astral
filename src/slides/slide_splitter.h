@@ -6,8 +6,8 @@
 #include "slides/slide_params.h"
 
 struct SlideSource {
-  std::string text;
-  SlideParams params;
+    std::string text;
+    SlideParams params;
 };
 
 // Splits `source` into slides using the "$[...]" marker — a line whose
@@ -53,4 +53,4 @@ struct SlideSource {
 // With no marker at all, the whole document is a single slide (compatible
 // with files that already existed before this feature), with the default
 // parameters. Always returns at least one slide, even if empty.
-std::vector<SlideSource> split_into_slides(const std::string& source);
+std::vector<SlideSource> split_into_slides(const std::string &source);

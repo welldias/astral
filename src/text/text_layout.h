@@ -32,7 +32,7 @@ inline constexpr float kThematicBreakThicknessFraction = 0.06f;
 // and adds to the block's width) and render/text_renderer.cpp (draws the
 // bar and offsets the text).
 inline constexpr float kBlockQuoteBarWidthFraction = 0.12f;
-inline constexpr float kBlockQuoteGapFraction = 0.6f;
+inline constexpr float kBlockQuoteGapFraction      = 0.6f;
 
 // Indentation of a list item (BlockKind::ListItem), as fractions of
 // font_size: kListIndentPerLevelFraction advances per nesting level
@@ -42,7 +42,7 @@ inline constexpr float kBlockQuoteGapFraction = 0.6f;
 // to the block's width) and render/text_renderer.cpp (draws the marker and
 // offsets the text).
 inline constexpr float kListIndentPerLevelFraction = 1.3f;
-inline constexpr float kListMarkerGapFraction = 0.5f;
+inline constexpr float kListMarkerGapFraction      = 0.5f;
 
 // The hollow-circle glyph ("○", 2nd-level unordered list marker — see
 // list_marker_text in text_layout.cpp) is drawn noticeably larger than the
@@ -61,7 +61,7 @@ inline constexpr float kListCircleMarkerScale = 0.4f;
 // margin even when the image is the slide's only content, and guarantee
 // that an image alone never forces the rest of the slide's font to shrink
 // (it already fits within the available space from the start).
-inline constexpr float kImageMaxWidthFraction = 1.0f;
+inline constexpr float kImageMaxWidthFraction  = 1.0f;
 inline constexpr float kImageMaxHeightFraction = 0.85f;
 
 // Geometry of a table (BlockKind::Table), as fractions of font_size:
@@ -73,8 +73,8 @@ inline constexpr float kImageMaxHeightFraction = 0.85f;
 // lines (row/column borders) and the outer outline. Shared between
 // text_layout.cpp (measures columns/rows) and render/text_renderer.cpp
 // (draws the grid and positions each cell's text).
-inline constexpr float kTableCellPaddingXFraction = 0.6f;
-inline constexpr float kTableCellPaddingYFraction = 0.45f;
+inline constexpr float kTableCellPaddingXFraction    = 0.6f;
+inline constexpr float kTableCellPaddingYFraction    = 0.45f;
 inline constexpr float kTableBorderThicknessFraction = 0.035f;
 
 // Letter-spacing added between consecutive characters when measuring/
@@ -95,117 +95,117 @@ inline constexpr float kTableBorderThicknessFraction = 0.035f;
 inline constexpr float kLetterSpacingFraction = 0.03f;
 
 struct FontSet {
-  Font regular;
-  Font bold;
-  Font italic;
-  Font bold_italic;
-  Font mono;
+    Font regular;
+    Font bold;
+    Font italic;
+    Font bold_italic;
+    Font mono;
 
-  // Dedicated fonts for emoji/Asian-language characters, passed via
-  // --emoji-font/--asian-font (see cli/cli_args.h). While not loaded
-  // (parameter absent, or no usage detected in the document — see
-  // render/text_renderer.h::ensure_extra_fonts_loaded), they stay aliased
-  // to `regular`, same scheme as bold/italic in TextRenderer::fonts.
-  Font emoji;
-  Font asian;
+    // Dedicated fonts for emoji/Asian-language characters, passed via
+    // --emoji-font/--asian-font (see cli/cli_args.h). While not loaded
+    // (parameter absent, or no usage detected in the document — see
+    // render/text_renderer.h::ensure_extra_fonts_loaded), they stay aliased
+    // to `regular`, same scheme as bold/italic in TextRenderer::fonts.
+    Font emoji;
+    Font asian;
 };
 
 struct InlineRun {
-  std::string text;
-  float width;
-  bool bold;
-  bool italic;
-  bool strikethrough;
-  bool code;
+    std::string text;
+    float width;
+    bool bold;
+    bool italic;
+    bool strikethrough;
+    bool code;
 
-  // Font category for this run's text (see text/glyph_class.h) — regular
-  // text runs are partitioned by GlyphFontKind in tokenize_words, so each
-  // span (emoji/Asian/rest) draws with the right font even within the same
-  // word. `code` takes priority over `kind` in select_styled_font: code
-  // always uses the mono font, not the emoji/Asian one, even if it
-  // contains those characters.
-  GlyphFontKind kind = GlyphFontKind::Base;
+    // Font category for this run's text (see text/glyph_class.h) — regular
+    // text runs are partitioned by GlyphFontKind in tokenize_words, so each
+    // span (emoji/Asian/rest) draws with the right font even within the same
+    // word. `code` takes priority over `kind` in select_styled_font: code
+    // always uses the mono font, not the emoji/Asian one, even if it
+    // contains those characters.
+    GlyphFontKind kind = GlyphFontKind::Base;
 };
 
 struct TextLine {
-  std::vector<InlineRun> runs;
-  float width;
+    std::vector<InlineRun> runs;
+    float width;
 };
 
 struct LayoutBlock {
-  std::vector<TextLine> lines;
-  float font_size;
-  float line_height;
-  float spacing_after;      // extra space after this block (0 on the last block)
-  bool is_code_block;       // true: lines left-aligned inside their own panel, no reflow
-  bool is_thematic_break;   // true: no text — a single "line" that is the horizontal rule itself
-  bool is_block_quote;      // true: forced italic, indented by a vertical bar on the left
+    std::vector<TextLine> lines;
+    float font_size;
+    float line_height;
+    float spacing_after;    // extra space after this block (0 on the last block)
+    bool is_code_block;     // true: lines left-aligned inside their own panel, no reflow
+    bool is_thematic_break; // true: no text — a single "line" that is the horizontal rule itself
+    bool is_block_quote;    // true: forced italic, indented by a vertical bar on the left
 
-  // Valid only when is_list_item == true. list_marker is the item's marker
-  // text ("•", "1.", "ii.", "a.", ...), drawn only on the first line
-  // (hanging indent — subsequent lines, if the text wraps, align with the
-  // start of the text, not the marker). list_marker_font_size is the size
-  // at which list_marker is drawn — same as font_size, except for the
-  // hollow circle, which uses kListCircleMarkerScale (see above).
-  // list_indent is the marker's horizontal offset from the start of the
-  // block (list_level * font_size * kListIndentPerLevelFraction).
-  // list_box_width is the width of the "box" (marker + text) used to align
-  // the item — it's not this item's own width: it's shared by ALL list
-  // items on the slide, even ones from different lists separated by other
-  // content (see the step at the end of layout_at_font_size, in
-  // text_layout.cpp), so items line up in a column as a single list and
-  // the slide's lists line up with each other, instead of each item (or
-  // each list) centering/aligning on its own.
-  bool is_list_item;
-  std::string list_marker;
-  float list_marker_font_size;
-  float list_indent;
-  float list_box_width;
+    // Valid only when is_list_item == true. list_marker is the item's marker
+    // text ("•", "1.", "ii.", "a.", ...), drawn only on the first line
+    // (hanging indent — subsequent lines, if the text wraps, align with the
+    // start of the text, not the marker). list_marker_font_size is the size
+    // at which list_marker is drawn — same as font_size, except for the
+    // hollow circle, which uses kListCircleMarkerScale (see above).
+    // list_indent is the marker's horizontal offset from the start of the
+    // block (list_level * font_size * kListIndentPerLevelFraction).
+    // list_box_width is the width of the "box" (marker + text) used to align
+    // the item — it's not this item's own width: it's shared by ALL list
+    // items on the slide, even ones from different lists separated by other
+    // content (see the step at the end of layout_at_font_size, in
+    // text_layout.cpp), so items line up in a column as a single list and
+    // the slide's lists line up with each other, instead of each item (or
+    // each list) centering/aligning on its own.
+    bool is_list_item;
+    std::string list_marker;
+    float list_marker_font_size;
+    float list_indent;
+    float list_box_width;
 
-  // Valid only when is_image == true. image_texture is the already-loaded
-  // texture (see assets/image_cache.h), or nullptr if the file wasn't
-  // found/loaded — in that case `lines` carries the alt text
-  // (ContentBlock::spans) wrapped as a normal paragraph, instead of a
-  // single empty "line" sized to the image (see layout_at_font_size), and
-  // that's what should be drawn, not image_width/image_height (which are
-  // left at their default, meaningless value in that case). image_texture
-  // points into the ImageCache passed to compute_fitted_layout — valid
-  // until unload_image_cache, never invalidated by other images loaded
-  // after it.
-  bool is_image;
-  const Texture2D* image_texture;
-  float image_width;
-  float image_height;
+    // Valid only when is_image == true. image_texture is the already-loaded
+    // texture (see assets/image_cache.h), or nullptr if the file wasn't
+    // found/loaded — in that case `lines` carries the alt text
+    // (ContentBlock::spans) wrapped as a normal paragraph, instead of a
+    // single empty "line" sized to the image (see layout_at_font_size), and
+    // that's what should be drawn, not image_width/image_height (which are
+    // left at their default, meaningless value in that case). image_texture
+    // points into the ImageCache passed to compute_fitted_layout — valid
+    // until unload_image_cache, never invalidated by other images loaded
+    // after it.
+    bool is_image;
+    const Texture2D *image_texture;
+    float image_width;
+    float image_height;
 
-  // Valid only when is_table == true. A table doesn't reflow: each cell is
-  // a single TextLine (no line wrapping of its own — see
-  // layout_at_font_size), and every row in the table has the same height
-  // (table_row_height). table_column_width[i] already includes the
-  // horizontal padding on both sides (kTableCellPaddingXFraction),
-  // table_column_align is a copy of ContentBlock::table_column_align
-  // (decides the text alignment within the column, at draw time).
-  // table_header_row has one cell per column; table_body_rows[row][column]
-  // is the rest — a body row can have fewer cells than columns (a missing
-  // cell becomes an empty TextLine, see text_layout.cpp), never more.
-  //
-  // `lines` (inherited from every LayoutBlock) isn't used for the table's
-  // text itself — it has one empty TextLine per table row (header + body),
-  // just so the generic block width/height computation below can reuse the
-  // same formula the other block types already use (see
-  // layout_at_font_size); what actually draws it is
-  // render/text_renderer.cpp, using the fields below.
-  bool is_table;
-  std::vector<float> table_column_width;
-  std::vector<TextAlign> table_column_align;
-  std::vector<TextLine> table_header_row;
-  std::vector<std::vector<TextLine>> table_body_rows;
-  float table_row_height;
+    // Valid only when is_table == true. A table doesn't reflow: each cell is
+    // a single TextLine (no line wrapping of its own — see
+    // layout_at_font_size), and every row in the table has the same height
+    // (table_row_height). table_column_width[i] already includes the
+    // horizontal padding on both sides (kTableCellPaddingXFraction),
+    // table_column_align is a copy of ContentBlock::table_column_align
+    // (decides the text alignment within the column, at draw time).
+    // table_header_row has one cell per column; table_body_rows[row][column]
+    // is the rest — a body row can have fewer cells than columns (a missing
+    // cell becomes an empty TextLine, see text_layout.cpp), never more.
+    //
+    // `lines` (inherited from every LayoutBlock) isn't used for the table's
+    // text itself — it has one empty TextLine per table row (header + body),
+    // just so the generic block width/height computation below can reuse the
+    // same formula the other block types already use (see
+    // layout_at_font_size); what actually draws it is
+    // render/text_renderer.cpp, using the fields below.
+    bool is_table;
+    std::vector<float> table_column_width;
+    std::vector<TextAlign> table_column_align;
+    std::vector<TextLine> table_header_row;
+    std::vector<std::vector<TextLine>> table_body_rows;
+    float table_row_height;
 };
 
 struct TextLayoutResult {
-  std::vector<LayoutBlock> blocks;
-  float block_width;   // largest line width (or code panel width) among all blocks
-  float block_height;  // total height, already summing inter-block spacing and code block padding
+    std::vector<LayoutBlock> blocks;
+    float block_width;  // largest line width (or code panel width) among all blocks
+    float block_height; // total height, already summing inter-block spacing and code block padding
 };
 
 // Picks, among the fonts in `fonts`, the right variant for the given
@@ -213,7 +213,7 @@ struct TextLayoutResult {
 // (emoji/Asian always use the corresponding dedicated font, ignoring
 // bold/italic — those fonts only have one weight) > bold/italic of the
 // "normal" font.
-const Font& select_styled_font(bool bold, bool italic, bool code, GlyphFontKind kind, const FontSet& fonts);
+const Font &select_styled_font(bool bold, bool italic, bool code, GlyphFontKind kind, const FontSet &fonts);
 
 // Computes the layout of `content` (already-parsed Markdown blocks).
 // Paragraphs, headings, blockquotes and list items are wrapped into lines
@@ -245,6 +245,4 @@ const Font& select_styled_font(bool bold, bool italic, bool code, GlyphFontKind 
 // `available_width` x `available_height`, or until it reaches
 // config.min_font_size (floor — residual overflow is accepted in that
 // case).
-TextLayoutResult compute_fitted_layout(const std::vector<ContentBlock>& content, const FontSet& fonts,
-                                        const AppConfig& config, float initial_font_size, float available_width,
-                                        float available_height, ImageCache& image_cache);
+TextLayoutResult compute_fitted_layout(const std::vector<ContentBlock> &content, const FontSet &fonts, const AppConfig &config, float initial_font_size, float available_width, float available_height, ImageCache &image_cache);

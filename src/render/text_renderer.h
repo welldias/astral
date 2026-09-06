@@ -11,47 +11,47 @@
 #include "text/text_layout.h"
 
 struct TextRenderer {
-  FontSet fonts;  // fonts.regular is always loaded; the others only if requested via ensure_styles_loaded
+    FontSet fonts; // fonts.regular is always loaded; the others only if requested via ensure_styles_loaded
 
-  FontPaths font_paths;  // resolved paths, kept to load on demand
-  int base_size;
+    FontPaths font_paths; // resolved paths, kept to load on demand
+    int base_size;
 
-  // Paths passed via --emoji-font/--asian-font (see cli/cli_args.h);
-  // empty = parameter not given. Kept here (instead of only in
-  // CliArgs) so ensure_extra_fonts_loaded can decide, on every
-  // document reload (hot-reload), whether it needs to load on demand.
-  std::string emoji_font_path;
-  std::string asian_font_path;
+    // Paths passed via --emoji-font/--asian-font (see cli/cli_args.h);
+    // empty = parameter not given. Kept here (instead of only in
+    // CliArgs) so ensure_extra_fonts_loaded can decide, on every
+    // document reload (hot-reload), whether it needs to load on demand.
+    std::string emoji_font_path;
+    std::string asian_font_path;
 
-  bool bold_loaded;
-  bool italic_loaded;
-  bool bold_italic_loaded;
-  bool mono_loaded;
-  bool emoji_loaded;
-  bool asian_loaded;
+    bool bold_loaded;
+    bool italic_loaded;
+    bool bold_italic_loaded;
+    bool mono_loaded;
+    bool emoji_loaded;
+    bool asian_loaded;
 
-  // true: the corresponding variant was loaded as its own texture
-  // (needs UnloadFont); false: never requested, or it's the same font as
-  // `fonts.regular` (fallback already resolved in resolve_font_paths, or
-  // --emoji-font/--asian-font not given).
-  bool has_distinct_bold_font;
-  bool has_distinct_italic_font;
-  bool has_distinct_bold_italic_font;
-  bool has_distinct_emoji_font;
-  bool has_distinct_asian_font;
+    // true: the corresponding variant was loaded as its own texture
+    // (needs UnloadFont); false: never requested, or it's the same font as
+    // `fonts.regular` (fallback already resolved in resolve_font_paths, or
+    // --emoji-font/--asian-font not given).
+    bool has_distinct_bold_font;
+    bool has_distinct_italic_font;
+    bool has_distinct_bold_italic_font;
+    bool has_distinct_emoji_font;
+    bool has_distinct_asian_font;
 
-  // Codepoints already rasterized in the current fonts.emoji/fonts.asian
-  // atlas — used by ensure_extra_fonts_loaded to know whether a hot-reload
-  // introduced a new codepoint (in that case the atlas needs to be
-  // reloaded; the set only grows, never shrinks).
-  std::set<int> emoji_codepoints_loaded;
-  std::set<int> asian_codepoints_loaded;
+    // Codepoints already rasterized in the current fonts.emoji/fonts.asian
+    // atlas — used by ensure_extra_fonts_loaded to know whether a hot-reload
+    // introduced a new codepoint (in that case the atlas needs to be
+    // reloaded; the set only grows, never shrinks).
+    std::set<int> emoji_codepoints_loaded;
+    std::set<int> asian_codepoints_loaded;
 
-  // false: fonts.mono was never requested, or it's raylib's built-in font
-  // (GetFontDefault(), which raylib manages itself) — do not unload it.
-  bool mono_font_is_owned;
+    // false: fonts.mono was never requested, or it's raylib's built-in font
+    // (GetFontDefault(), which raylib manages itself) — do not unload it.
+    bool mono_font_is_owned;
 
-  Shader sdf_shader;
+    Shader sdf_shader;
 };
 
 // Loads only the regular font (SDF, smooth edges at any scale,
@@ -61,14 +61,13 @@ struct TextRenderer {
 // doesn't use bold/italic/code/emoji/Asian characters. `emoji_font_path`/
 // `asian_font_path` come from --emoji-font/--asian-font (see cli/cli_args.h)
 // — empty when the corresponding parameter wasn't passed.
-TextRenderer load_text_renderer(const FontPaths& font_paths, float base_font_size,
-                                 const std::string& emoji_font_path, const std::string& asian_font_path);
+TextRenderer load_text_renderer(const FontPaths &font_paths, float base_font_size, const std::string &emoji_font_path, const std::string &asian_font_path);
 
 // Ensures each variant marked in `usage` is loaded, loading on demand
 // whichever is still missing (idempotent: already loaded doesn't reload).
 // Call after parse_markdown, both on the initial load and on every
 // reload — the content may start using a style it didn't use before.
-void ensure_styles_loaded(TextRenderer& renderer, const StyleUsage& usage);
+void ensure_styles_loaded(TextRenderer &renderer, const StyleUsage &usage);
 
 // Ensures the emoji/Asian font is loaded with the codepoints from `usage`
 // (see markdown/markdown_parser.h::CodepointUsage), if
@@ -87,9 +86,9 @@ void ensure_styles_loaded(TextRenderer& renderer, const StyleUsage& usage);
 // rendering — the character is drawn with the regular font, which doesn't
 // have the glyph (shows up as '?', see raylib::GetGlyphIndex), without
 // crashing or interrupting the program.
-void ensure_extra_fonts_loaded(TextRenderer& renderer, const CodepointUsage& usage);
+void ensure_extra_fonts_loaded(TextRenderer &renderer, const CodepointUsage &usage);
 
-void unload_text_renderer(TextRenderer& renderer);
+void unload_text_renderer(TextRenderer &renderer);
 
 // Draws `layout` vertically centered in the window; the horizontal
 // position follows `params.align` (default for a slide with no "align"
@@ -102,5 +101,4 @@ void unload_text_renderer(TextRenderer& renderer);
 // `config.code_background_color` otherwise — `params.bg_color` is not used
 // here, since clearing the screen is the caller's responsibility (see
 // main.cpp).
-void draw_centered_text(const TextRenderer& renderer, const TextLayoutResult& layout, int window_width,
-                         int window_height, const AppConfig& config, const SlideParams& params);
+void draw_centered_text(const TextRenderer &renderer, const TextLayoutResult &layout, int window_width, int window_height, const AppConfig &config, const SlideParams &params);

@@ -75,12 +75,21 @@ astral <file.md> [options]
   --bold-font <path.ttf>     Font used for bold text (default: system font)
   --mono-font <path.ttf>     Font used for code/monospace text (default: system font)
   --force-overview            Start in the grid overview mode
+  --theme <name>               Built-in color theme (default: Astral's own colors)
 ```
 
 `--regular-font`/`--italic-font`/`--bold-font`/`--mono-font` are independent of
 each other — pass only the ones you want to override, the rest keep using
 the operating system's default. A path that doesn't exist is a hard error
 (logged to stderr), not a silent fallback.
+
+`--theme` overrides the presentation's default background, text and code-block
+colors. Available names: `zinc-light`, `zinc-dark`, `tokyo-night`,
+`tokyo-night-storm`, `tokyo-night-light`, `catppuccin-mocha`,
+`catppuccin-latte`, `nord`, `nord-light`, `dracula`, `github-light`,
+`github-dark`, `solarized-light`, `solarized-dark`, `one-dark`. A slide's own
+`bg-color`/`text-color`/`block-color` marker parameters still take priority
+over the theme, same as they do over the default colors.
 
 While presenting: the arrow keys move between slides, the mouse wheel (or
 `+`/`-`) zooms into the current slide, dragging pans around it while zoomed,

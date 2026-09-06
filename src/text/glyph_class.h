@@ -13,10 +13,10 @@
 // font, which doesn't have that glyph (shows up as '?'), and triggers a
 // warning (see render/text_renderer.h::ensure_extra_fonts_loaded).
 enum class GlyphFontKind {
-  Base,
-  Emoji,
-  Asian,
-  Other,
+    Base,
+    Emoji,
+    Asian,
+    Other,
 };
 
 GlyphFontKind classify_codepoint(int codepoint);
@@ -33,8 +33,8 @@ std::vector<int> base_codepoints();
 // A span of `text` (UTF-8 bytes) whose codepoints all belong to the same
 // GlyphFontKind — see split_by_glyph_kind.
 struct GlyphRun {
-  std::string text;
-  GlyphFontKind kind;
+    std::string text;
+    GlyphFontKind kind;
 };
 
 // Decodes `text` (UTF-8) and partitions it into consecutive spans of the
@@ -43,4 +43,4 @@ struct GlyphRun {
 // isolated invalid byte (GetCodepointNext returns '?' with size 1, see
 // raylib) is treated as GlyphFontKind::Base, same as any other printable
 // ASCII character.
-std::vector<GlyphRun> split_by_glyph_kind(const std::string& text);
+std::vector<GlyphRun> split_by_glyph_kind(const std::string &text);
