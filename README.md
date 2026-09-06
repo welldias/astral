@@ -1,4 +1,4 @@
-# Astral ![Marca do Astral](../assets/logo-dark.png)
+# Astral
 
 Astral is a minimalist presentation tool that turns plain Markdown files into
 full-screen slide decks. Write your slides as `.md`, run one command, and
