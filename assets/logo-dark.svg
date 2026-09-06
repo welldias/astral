@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240" fill="none">
+  <!-- Astral mark — dark/navy background variant. Same mark as logo.svg,
+       ink flipped to off-white; the amber accent stays identical. -->
+  <line x1="45" y1="180" x2="120" y2="90" stroke="#f5f2ec" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="0.1 13"/>
+  <line x1="120" y1="90" x2="195" y2="60" stroke="#f5a623" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="0.1 11"/>
+  <circle cx="45" cy="180" r="9" fill="#f5a623"/>
+  <circle cx="120" cy="90" r="9" fill="#f5a623"/>
+  <circle cx="195" cy="60" r="33" stroke="#f5a623" stroke-width="2" opacity="0.35"/>
+  <path d="M195,39 Q195,60 216,60 Q195,60 195,81 Q195,60 174,60 Q195,60 195,39 Z" fill="#f5a623"/>
+</svg>
