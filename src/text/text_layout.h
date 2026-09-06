@@ -77,6 +77,23 @@ inline constexpr float kTableCellPaddingXFraction = 0.6f;
 inline constexpr float kTableCellPaddingYFraction = 0.45f;
 inline constexpr float kTableBorderThicknessFraction = 0.035f;
 
+// Letter-spacing added between consecutive characters when measuring/
+// drawing text (raylib's MeasureTextEx/DrawTextEx `spacing` parameter),
+// as a fraction of font_size. Shared between text_layout.cpp (measuring
+// words while wrapping/reflowing) and render/text_renderer.cpp (the actual
+// DrawTextEx calls, plus list item markers) — must be the same value in
+// both places so a run is drawn exactly as wide as it was measured.
+//
+// This only ever applies WITHIN a run of consecutive characters (a word, a
+// run of code, a marker) — a run boundary (e.g. the space between two
+// words) is its own single-character run (see the space handling in
+// text_layout.cpp's word-wrapping loop) and gets none of this extra
+// spacing added on top of its own glyph advance. A value that's too large
+// relative to the font's own space-glyph width makes the gaps between
+// letters of the same word approach the gap between two words, blurring
+// where one word ends and the next begins.
+inline constexpr float kLetterSpacingFraction = 0.03f;
+
 struct FontSet {
   Font regular;
   Font bold;

@@ -461,7 +461,7 @@ void draw_centered_text(const TextRenderer& renderer, const TextLayoutResult& la
     float list_text_indent = 0.0f;
     float list_box_width = 0.0f;
     if (block.is_list_item) {
-      float marker_spacing = block.list_marker_font_size * 0.1f;
+      float marker_spacing = block.list_marker_font_size * kLetterSpacingFraction;
       float marker_width = MeasureTextEx(renderer.fonts.regular, block.list_marker.c_str(),
                                           block.list_marker_font_size, marker_spacing)
                                 .x;
@@ -653,7 +653,7 @@ void draw_centered_text(const TextRenderer& renderer, const TextLayoutResult& la
   for (const PositionedRun& p : positioned) {
     const InlineRun& run = *p.run;
     const Font& font = select_styled_font(run.bold, run.italic, run.code, run.kind, renderer.fonts);
-    float spacing = p.font_size * 0.1f;
+    float spacing = p.font_size * kLetterSpacingFraction;
     // Inline code inside a blockquote keeps the normal text color, even
     // with is_block_quote — otherwise it would end up the same color as its
     // own background chip (also code_background_color) and the text would

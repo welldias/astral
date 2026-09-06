@@ -55,6 +55,26 @@ std::optional<CliArgs> parse_cli_args(int argc, char** argv) {
         return std::nullopt;
       }
       args.asian_font_path = argv[++i];
+    } else if (arg == "--regular-font") {
+      if (i + 1 >= argc) {
+        return std::nullopt;
+      }
+      args.regular_font_path = argv[++i];
+    } else if (arg == "--italic-font") {
+      if (i + 1 >= argc) {
+        return std::nullopt;
+      }
+      args.italic_font_path = argv[++i];
+    } else if (arg == "--bold-font") {
+      if (i + 1 >= argc) {
+        return std::nullopt;
+      }
+      args.bold_font_path = argv[++i];
+    } else if (arg == "--mono-font") {
+      if (i + 1 >= argc) {
+        return std::nullopt;
+      }
+      args.mono_font_path = argv[++i];
     } else if (arg == "--force-overview") {
       args.force_overview = true;
     } else if (!has_source) {

@@ -6,10 +6,9 @@
 namespace {
 
 constexpr float kFontShrinkStep = 2.0f;
-constexpr float kSpacingRatio = 0.1f;
 
 float text_spacing(float font_size) {
-  return font_size * kSpacingRatio;
+  return font_size * kLetterSpacingFraction;
 }
 
 float heading_scale(const AppConfig& config, int heading_level) {

@@ -41,6 +41,22 @@ struct CliArgs {
   std::string emoji_font_path;
   std::string asian_font_path;
 
+  // Paths to user-chosen fonts for the regular/italic/bold/monospace
+  // variants of the main text (see platform/default_font.h::FontPaths) —
+  // --regular-font/--italic-font/--bold-font/--mono-font. Empty: not given,
+  // Astral keeps looking up the operating system's own default font for
+  // that variant (the long-standing behavior, see resolve_font_paths).
+  // Given but pointing to a file that doesn't exist is a hard error (see
+  // main.cpp) — unlike a missing OS font, there's no sensible fallback for
+  // a font the user explicitly asked for by path. Doesn't cover
+  // bold-italic: that combination has no dedicated flag, it's still only
+  // ever resolved from the operating system (falling back to its own
+  // regular font).
+  std::string regular_font_path;
+  std::string italic_font_path;
+  std::string bold_font_path;
+  std::string mono_font_path;
+
   // true: the presentation opens directly in overview mode (thumbnail
   // grid, see render/slide_overview.h) instead of going straight to the
   // initial slide — useful for choosing where to start presenting by
@@ -52,8 +68,13 @@ struct CliArgs {
 
 // Usage: astral <file> [--slide <number>] [--screenshot <path.png>]
 //      [--screenshot-delay <seconds>] [--transition <fade|slide|zoom|none>]
-//      [--emoji-font <path.ttf>] [--asian-font <path.ttf>] [--force-overview]
+//      [--emoji-font <path.ttf>] [--asian-font <path.ttf>]
+//      [--regular-font <path.ttf>] [--italic-font <path.ttf>]
+//      [--bold-font <path.ttf>] [--mono-font <path.ttf>] [--force-overview]
 // Returns std::nullopt if the arguments are invalid (missing file, a
 // flag without its expected value, or an unrecognized --transition
-// value) — the caller should print the usage message.
+// value) — the caller should print the usage message. Doesn't check that
+// --regular-font/--italic-font/--bold-font/--mono-font actually exist —
+// that's a hard error, not a usage error, and is checked by main.cpp once
+// the source file's own existence has already been confirmed.
 std::optional<CliArgs> parse_cli_args(int argc, char** argv);

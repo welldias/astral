@@ -25,7 +25,8 @@ int main(int argc, char** argv) {
     std::fprintf(stderr,
                  "Usage: %s <file> [--slide <number>] [--screenshot <path.png>] [--screenshot-delay "
                  "<seconds>] [--transition <fade|slide|zoom|none>] [--emoji-font <path.ttf>] [--asian-font "
-                 "<path.ttf>] [--force-overview]\n",
+                 "<path.ttf>] [--regular-font <path.ttf>] [--italic-font <path.ttf>] [--bold-font <path.ttf>] "
+                 "[--mono-font <path.ttf>] [--force-overview]\n",
                  argv[0]);
     return 1;
   }
@@ -34,6 +35,22 @@ int main(int argc, char** argv) {
   if (!document) {
     std::fprintf(stderr, "Error: could not read file '%s'\n", args->source_path.c_str());
     return 1;
+  }
+
+  // --regular-font/--italic-font/--bold-font/--mono-font (see
+  // cli/cli_args.h): given but missing is a hard error, unlike a missing OS
+  // font (resolve_font_paths below just warns and falls back) — there's no
+  // reasonable fallback for a font the user explicitly asked for by path
+  // that doesn't exist.
+  for (const auto& [path, flag_name] :
+       {std::pair<const std::string&, const char*>{args->regular_font_path, "--regular-font"},
+        std::pair<const std::string&, const char*>{args->italic_font_path, "--italic-font"},
+        std::pair<const std::string&, const char*>{args->bold_font_path, "--bold-font"},
+        std::pair<const std::string&, const char*>{args->mono_font_path, "--mono-font"}}) {
+    if (!path.empty() && !FileExists(path.c_str())) {
+      std::fprintf(stderr, "Error: font given via %s ('%s') not found\n", flag_name, path.c_str());
+      return 1;
+    }
   }
 
   AppConfig config = make_default_config();
@@ -51,6 +68,30 @@ int main(int argc, char** argv) {
   SetExitKey(KEY_NULL);
 
   FontPaths font_paths = resolve_font_paths(config.bundled_font_path);
+
+  // User-chosen fonts (already validated above) take priority over whatever
+  // resolve_font_paths found on the operating system — applied per variant,
+  // independently: passing only --bold-font, say, leaves regular/italic/mono
+  // on the OS's own default. bold_italic is untouched: it has no dedicated
+  // flag (see cli/cli_args.h) and keeps following the OS/regular-font
+  // fallback exactly as resolve_font_paths already set it up. A non-empty
+  // font_paths.mono is loaded as a real font regardless of source (see
+  // ensure_styles_loaded) — --mono-font needs no special-casing here even
+  // though an OS-resolved empty mono normally means "use raylib's built-in
+  // font instead".
+  if (!args->regular_font_path.empty()) {
+    font_paths.regular = args->regular_font_path;
+  }
+  if (!args->italic_font_path.empty()) {
+    font_paths.italic = args->italic_font_path;
+  }
+  if (!args->bold_font_path.empty()) {
+    font_paths.bold = args->bold_font_path;
+  }
+  if (!args->mono_font_path.empty()) {
+    font_paths.mono = args->mono_font_path;
+  }
+
   TextRenderer renderer =
       load_text_renderer(font_paths, config.font_atlas_base_size, args->emoji_font_path, args->asian_font_path);
   FileWatchState watch_state = make_file_watch_state(args->source_path);
