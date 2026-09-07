@@ -35,6 +35,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Install CMake
+      # ubuntu-latest/windows-latest ship an older CMake than this project's
+      # cmake_minimum_required(VERSION 4.0); install a current release so
+      # configuration doesn't fail before it even starts.
+      uses: lukka/get-cmake@latest
+
     - name: Set reusable strings
       # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
       id: strings

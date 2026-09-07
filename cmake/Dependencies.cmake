@@ -35,7 +35,7 @@ set(BUILD_MD2HTML_EXECUTABLE OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
   nixie
   GIT_REPOSITORY https://github.com/welldias/nixie-lib.git
-  GIT_TAG        4de60ccea8fa3ae05fdcfeae8287763cfc2dd6cd
+  GIT_TAG        0.1.0
   GIT_SHALLOW    FALSE
 )
 set(NIXIE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -75,3 +75,17 @@ target_compile_definitions(nixie_static PRIVATE STB_IMAGE_WRITE_STATIC STBTT_STA
 if(TARGET nixie_shared)
   target_compile_definitions(nixie_shared PRIVATE STB_IMAGE_WRITE_STATIC STBTT_STATIC)
 endif()
+
+# Workaround: nixie-lib's own CMakeLists.txt treats all of its compiler
+# warnings as errors (/WX on MSVC, -Werror elsewhere) via the "nixie_warnings"
+# interface library. That's appropriate for nixie-lib's own CI, but as a
+# FetchContent dependency here its pre-existing warnings (e.g. MSVC C4116/
+# C4701) would otherwise fail astral's build. Drop the "treat as error" flag
+# while keeping the warnings themselves visible.
+#if(TARGET nixie_warnings)
+#  if(MSVC)
+#    set_target_properties(nixie_warnings PROPERTIES INTERFACE_COMPILE_OPTIONS "/W4")
+#  else()
+#    set_target_properties(nixie_warnings PROPERTIES INTERFACE_COMPILE_OPTIONS "-Wall;-Wextra;-Wpedantic")
+#  endif()
+#endif()
