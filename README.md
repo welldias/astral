@@ -8,6 +8,8 @@ present — no slide editor, no cloud account, no build pipeline.
 astral slides.md
 ```
 
+![](demo.png)
+
 ## Why Astral
 
 - **Write slides as text.** Headings, bold/italic, lists, tables, code
