@@ -41,6 +41,19 @@ jobs:
       # configuration doesn't fail before it even starts.
       uses: lukka/get-cmake@latest
 
+    - name: Install Linux build dependencies
+      # raylib's GLFW backend needs the X11/Wayland dev headers and tools
+      # (e.g. wayland-scanner) to configure, and astral itself links against
+      # fontconfig on Linux (see CMakeLists.txt's find_package(PkgConfig)).
+      # None of these ship on the ubuntu-latest runner image by default.
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libwayland-dev libxkbcommon-dev wayland-protocols \
+          libxinerama-dev libxcursor-dev libxrandr-dev libxi-dev libx11-dev \
+          libgl1-mesa-dev libglu1-mesa-dev libasound2-dev libfontconfig1-dev
+
     - name: Set reusable strings
       # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
       id: strings
