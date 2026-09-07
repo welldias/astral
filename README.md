@@ -2,7 +2,8 @@
 
 Astral is a minimalist presentation tool that turns plain Markdown files into
 full-screen slide decks. Write your slides as `.md`, run one command, and
-present — no slide editor, no cloud account, no build pipeline.
+present — no complicated slide editor, no tons of files instalation. 
+Don't neet it anymore? Just `rm astral`
 
 ```
 astral slides.md
