@@ -13,9 +13,16 @@ set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_GAMES OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
-if (UNIX AND NOT APPLE)
+if(EMSCRIPTEN)
+  # Tells raylib's own CMakeLists.txt to build against the Emscripten HTML5
+  # API (GRAPHICS_API_OPENGL_ES2) instead of its desktop GLFW backend.
+  set(PLATFORM "Web" CACHE STRING "" FORCE)
+endif()
+
+if (UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
   # Linux: enables both GLFW backends to work under both X11 and
-  # Wayland sessions (chosen at runtime).
+  # Wayland sessions (chosen at runtime). Not applicable under Emscripten,
+  # which doesn't build raylib's desktop GLFW backend at all.
   set(GLFW_BUILD_WAYLAND ON CACHE BOOL "" FORCE)
   set(GLFW_BUILD_X11 ON CACHE BOOL "" FORCE)
 endif()
@@ -35,7 +42,7 @@ set(BUILD_MD2HTML_EXECUTABLE OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
   nixie
   GIT_REPOSITORY https://github.com/welldias/nixie-lib.git
-  GIT_TAG        0.1.0
+  GIT_TAG        0.2.0
   GIT_SHALLOW    FALSE
 )
 set(NIXIE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -75,17 +82,3 @@ target_compile_definitions(nixie_static PRIVATE STB_IMAGE_WRITE_STATIC STBTT_STA
 if(TARGET nixie_shared)
   target_compile_definitions(nixie_shared PRIVATE STB_IMAGE_WRITE_STATIC STBTT_STATIC)
 endif()
-
-# Workaround: nixie-lib's own CMakeLists.txt treats all of its compiler
-# warnings as errors (/WX on MSVC, -Werror elsewhere) via the "nixie_warnings"
-# interface library. That's appropriate for nixie-lib's own CI, but as a
-# FetchContent dependency here its pre-existing warnings (e.g. MSVC C4116/
-# C4701) would otherwise fail astral's build. Drop the "treat as error" flag
-# while keeping the warnings themselves visible.
-#if(TARGET nixie_warnings)
-#  if(MSVC)
-#    set_target_properties(nixie_warnings PROPERTIES INTERFACE_COMPILE_OPTIONS "/W4")
-#  else()
-#    set_target_properties(nixie_warnings PROPERTIES INTERFACE_COMPILE_OPTIONS "-Wall;-Wextra;-Wpedantic")
-#  endif()
-#endif()

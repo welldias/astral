@@ -53,7 +53,7 @@ nixie_theme_name_t map_theme(std::optional<ThemeKind> theme) {
     case ThemeKind::OneDark:
         return NIXIE_THEME_ONE_DARK;
     case ThemeKind::CoffeeBean:
-        return NIXIE_THEME_SOLARIZED_LIGHT;
+        return NINIE_THEM_COFFEE_BEAN;
     }
 
     return NIXIE_THEME_ZINC_DARK; // unreachable: silences -Wreturn-type on some compilers
