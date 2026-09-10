@@ -77,6 +77,8 @@ std::optional<CliArgs> parse_cli_args(int argc, char **argv) {
             args.mono_font_path = argv[++i];
         } else if (arg == "--force-overview") {
             args.force_overview = true;
+        } else if (arg == "--verbose-log") {
+            args.verbose_log = true;
         } else if (arg == "--theme") {
             if (i + 1 >= argc) {
                 return std::nullopt;

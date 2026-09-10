@@ -1,12 +1,12 @@
 #include "render/text_renderer.h"
 
 #include <algorithm>
-#include <cstdio>
 #include <deque>
 #include <future>
 #include <set>
 #include <vector>
 
+#include "platform/log.h"
 #include "text/glyph_class.h"
 
 namespace {
@@ -99,7 +99,7 @@ std::string validate_extra_font_path(const std::string &path, const char *flag_n
     if (path.empty() || FileExists(path.c_str())) {
         return path;
     }
-    std::fprintf(stderr,
+    log_warning(
         "Warning: font given via %s ('%s') not found; ignoring -- characters in that category "
         "will use the regular font (see classify_codepoint).\n",
         flag_name, path.c_str());
@@ -299,7 +299,7 @@ void ensure_extra_fonts_loaded(TextRenderer &renderer, const CodepointUsage &usa
 
     auto warn_once = [](int codepoint, const char *reason) {
         if (warned_codepoints.insert(codepoint).second) {
-            std::fprintf(stderr,
+            log_warning(
                 "Warning: character U+%04X %s; it will be drawn with the regular font, which doesn't "
                 "have that glyph (shows up as '?').\n",
                 codepoint, reason);

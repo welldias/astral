@@ -2,7 +2,7 @@
 
 #include <raylib.h>
 
-#include <cstdio>
+#include "platform/log.h"
 
 namespace {
 
@@ -13,7 +13,7 @@ std::string resolve_or_fallback(const std::string &found, const std::string &fal
     if (!found.empty() && FileExists(found.c_str())) {
         return found;
     }
-    std::fprintf(stderr, "Warning: system %s not found; using the regular font.\n", variant_name);
+    log_warning("Warning: system %s not found; using the regular font.\n", variant_name);
     return fallback;
 }
 
@@ -24,7 +24,7 @@ FontPaths resolve_font_paths(const std::string &bundled_font_path) {
 
     std::string regular = get_system_default_font_path();
     if (regular.empty() || !FileExists(regular.c_str())) {
-        std::fprintf(stderr, "Warning: system default font not found; using the bundled font.\n");
+        log_warning("Warning: system default font not found; using the bundled font.\n");
         regular = bundled_font_path;
     }
     paths.regular = regular;
@@ -38,7 +38,7 @@ FontPaths resolve_font_paths(const std::string &bundled_font_path) {
     // leave it empty for the caller to use raylib's built-in font.
     std::string mono = get_system_monospace_font_path();
     if (mono.empty() || !FileExists(mono.c_str())) {
-        std::fprintf(stderr, "Warning: system monospace font not found; using raylib's built-in font.\n");
+        log_warning("Warning: system monospace font not found; using raylib's built-in font.\n");
         mono.clear();
     }
     paths.mono = mono;

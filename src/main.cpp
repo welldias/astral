@@ -15,6 +15,7 @@
 #include "config/theme.h"
 #include "document/document.h"
 #include "platform/default_font.h"
+#include "platform/log.h"
 #include "render/slide_overview.h"
 #include "render/text_renderer.h"
 
@@ -24,7 +25,42 @@ constexpr const char *kUsage =
     "Usage: %s <file> [--slide <number>] [--screenshot <path.png>] [--screenshot-delay "
     "<seconds>] [--transition <fade|slide|zoom|none>] [--emoji-font <path.ttf>] [--asian-font "
     "<path.ttf>] [--regular-font <path.ttf>] [--italic-font <path.ttf>] [--bold-font <path.ttf>] "
-    "[--mono-font <path.ttf>] [--force-overview] [--theme <name>]\n";
+    "[--mono-font <path.ttf>] [--force-overview] [--theme <name>] [--verbose-log]\n";
+
+// Draws one frame of a loading progress bar, centered on the window — shown
+// in place of the log output that startup would otherwise print (see
+// platform/log.h and the SetTraceLogLevel call below), so the user gets
+// some feedback instead of a silent, seemingly-frozen window. Only called
+// with --verbose-log absent (see main()); with it, the log lines
+// themselves are the feedback, and calling this too would just interleave
+// a progress bar into the middle of the terminal output.
+void draw_loading_progress(const AppConfig &config, float fraction) {
+    BeginDrawing();
+    ClearBackground(config.background_color);
+
+    int window_width  = GetScreenWidth();
+    int window_height = GetScreenHeight();
+
+    float bar_width  = static_cast<float>(window_width) * 0.4f;
+    float bar_height = 6.0f;
+    float bar_x      = (static_cast<float>(window_width) - bar_width) / 2.0f;
+    float bar_y      = static_cast<float>(window_height) / 2.0f;
+
+    Color track_color = Fade(config.text_color, 0.25f);
+    Rectangle track    = { bar_x, bar_y, bar_width, bar_height };
+    Rectangle fill     = { bar_x, bar_y, bar_width * std::clamp(fraction, 0.0f, 1.0f), bar_height };
+    DrawRectangleRounded(track, 1.0f, 8, track_color);
+    if (fill.width > 0.0f) {
+        DrawRectangleRounded(fill, 1.0f, 8, config.text_color);
+    }
+
+    const char *label = "Loading...";
+    int label_size     = 20;
+    int label_width    = MeasureText(label, label_size);
+    DrawText(label, static_cast<int>(bar_x + (bar_width - static_cast<float>(label_width)) / 2.0f), static_cast<int>(bar_y - static_cast<float>(label_size) - 14.0f), label_size, config.text_color);
+
+    EndDrawing();
+}
 
 } // namespace
 
@@ -54,6 +90,17 @@ int main(int argc, char **argv) {
         std::fprintf(stderr, kUsage, argv[0]);
         return 1;
     }
+
+    // Applies to Astral's own diagnostic warnings (platform/log.h) as well
+    // as raylib's TraceLog (silenced below, right before InitWindow) — both
+    // are noise unless the user actually asked to see them via
+    // --verbose-log. Set as early as possible so nothing loaded before this
+    // point could have logged anyway (font/window loading hasn't started
+    // yet); the hard errors below (bad file, missing user-given font) are
+    // fprintf'd directly rather than through log_warning, so they always
+    // show regardless of this flag.
+    set_verbose_log_enabled(args.verbose_log);
+    bool show_loading_progress = !args.verbose_log;
 
     // Fails fast, before opening any window — matches the long-standing
     // native behavior. try_open_document (below) re-reads the file; that
@@ -92,10 +139,22 @@ int main(int argc, char **argv) {
         apply_theme(config, *args.theme);
     }
 
+    // raylib's own TraceLog (window/GPU/font/shader info, printed to stdout)
+    // — silenced by default in favor of the loading progress bar drawn
+    // below; --verbose-log leaves raylib's default level untouched, i.e.
+    // this run behaves exactly like before that flag existed.
+    if (!args.verbose_log) {
+        SetTraceLogLevel(LOG_NONE);
+    }
+
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
     InitWindow(config.default_window_width, config.default_window_height, config.window_title.c_str());
     SetWindowMinSize(config.min_window_width, config.min_window_height);
     SetTargetFPS(60);
+
+    if (show_loading_progress) {
+        draw_loading_progress(config, 0.05f);
+    }
 
     // Disables raylib's built-in "ESC closes the window" handling — ESC still
     // closes the window (see AppState::should_quit), but only once content
@@ -127,6 +186,10 @@ int main(int argc, char **argv) {
         font_paths.mono = args.mono_font_path;
     }
 
+    if (show_loading_progress) {
+        draw_loading_progress(config, 0.15f);
+    }
+
     // Heap-allocated (rather than a local variable) so the same AppState
     // outlives main() itself — required on Emscripten, where
     // emscripten_set_main_loop_arg's callback (frame(), see app/app_state.h)
@@ -143,6 +206,10 @@ int main(int argc, char **argv) {
     state->renderer         = load_text_renderer(font_paths, config.font_atlas_base_size, args.emoji_font_path, args.asian_font_path);
     state->loop_entry_time  = GetTime();
 
+    if (show_loading_progress) {
+        draw_loading_progress(config, 0.7f);
+    }
+
     // Pair of RenderTexture2D reused across every transition (see
     // render/slide_transition.h) — allocating a new one on every slide
     // change already caused a brief stutter/flicker right at the moment of
@@ -156,6 +223,10 @@ int main(int argc, char **argv) {
     // "render the slide into a texture, then draw that texture" approach as
     // the transition buffers above, for the same reason.
     state->zoom_buffer = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+
+    if (show_loading_progress) {
+        draw_loading_progress(config, 0.8f);
+    }
 
     if (has_initial_document) {
         if (!try_open_document(*state, args.source_path)) {
@@ -177,6 +248,10 @@ int main(int argc, char **argv) {
             // actually applies.
             state->current_slide = std::clamp(args.initial_slide - 1, 0, static_cast<int>(state->deck.slides.size()) - 1);
 
+            if (show_loading_progress) {
+                draw_loading_progress(config, 0.95f);
+            }
+
             // "Overview" mode (clickable grid of thumbnails, see
             // render/slide_overview.h) — activated while Ctrl is held down
             // (see app/app_state.cpp). --force-overview starts the
@@ -188,6 +263,10 @@ int main(int argc, char **argv) {
                 rebuild_overview_thumbnails(state->overview_state, state->deck, state->renderer, state->config, state->image_cache, args.theme);
             }
         }
+    }
+
+    if (show_loading_progress) {
+        draw_loading_progress(config, 1.0f);
     }
 
 #ifdef __EMSCRIPTEN__

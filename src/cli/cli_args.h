@@ -71,6 +71,15 @@ struct CliArgs {
     // AppConfig's default colors (see main.cpp). nullopt: not given, keeps
     // Astral's long-standing default colors (make_default_config).
     std::optional<ThemeKind> theme;
+
+    // false (default): raylib's own TraceLog output and Astral's own
+    // diagnostic warnings (see platform/log.h) are both silenced during
+    // startup, and a loading progress bar is drawn in their place (see
+    // main.cpp) — the long-standing wall of log lines was noise for anyone
+    // not actively debugging a load issue. true ("--verbose-log"): restores
+    // that log output exactly as before, and skips the progress bar (the
+    // two aren't drawn together — the log lines are the feedback instead).
+    bool verbose_log = false;
 };
 
 // Usage: astral <file> [--slide <number>] [--screenshot <path.png>]
@@ -78,7 +87,7 @@ struct CliArgs {
 //      [--emoji-font <path.ttf>] [--asian-font <path.ttf>]
 //      [--regular-font <path.ttf>] [--italic-font <path.ttf>]
 //      [--bold-font <path.ttf>] [--mono-font <path.ttf>] [--force-overview]
-//      [--theme <name>]
+//      [--theme <name>] [--verbose-log]
 // Returns std::nullopt if the arguments are invalid (missing file, a
 // flag without its expected value, or an unrecognized --transition or
 // --theme value) — the caller should print the usage message. Doesn't
