@@ -39,9 +39,7 @@ A thematic break (`---`) renders as a horizontal rule, like the one above.
 $[align=left,transition=slide]
 ## Per-slide styling
 
-Every slide can set its own **background**, **text**, and **code
-highlight** colors, plus horizontal **alignment**, using one marker line
-right in the Markdown, right before the slide it applies to:
+Every slide can set its own **background**, **text**, and **code highlight** colors, plus horizontal **alignment**, using one marker line right in the Markdown, right before the slide it applies to:
 
 `align=left,bg-color=#1a2b4c,text-color=#ffd76e,block-color=#2f4770`
 
