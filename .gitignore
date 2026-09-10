@@ -1,6 +1,7 @@
 # Build output
 build/
 build-wasm/
+build-release/
 bin/
 obj/
 out/

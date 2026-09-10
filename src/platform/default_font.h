@@ -32,3 +32,14 @@ struct FontPaths {
 // Implemented in default_font_resolve.cpp, compiled on every OS (doesn't
 // depend on any platform-specific API).
 FontPaths resolve_font_paths(const std::string &bundled_font_path);
+
+// Looks for "<dir>/<base_name>.ttf", then "<dir>/<base_name>.otf" — lets a
+// slide deck ship its own font next to the .md file (e.g. a "default.ttf"
+// alongside deck.md is picked up as if the user had passed
+// --regular-font deck-dir/default.ttf; "bold.ttf"/"italic.ttf" the same way
+// for --bold-font/--italic-font — see main.cpp). `dir` empty (no document
+// loaded, e.g. Emscripten before a file is opened): always returns empty,
+// no lookup performed. Neither file present: returns empty. Implemented in
+// default_font_resolve.cpp — pure filesystem checks, no platform-specific
+// API needed.
+std::string find_font_in_directory(const std::string &dir, const std::string &base_name);

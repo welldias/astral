@@ -1,5 +1,7 @@
 #include "render/text_renderer.h"
 
+#include <rlgl.h>
+
 #include <algorithm>
 #include <deque>
 #include <future>
@@ -38,10 +40,16 @@ varying vec4 fragColor;
 uniform sampler2D texture0;
 uniform vec4 colDiffuse;
 
+// Synthetic-bold amount (see kSyntheticBoldAmount): shifts the smoothstep
+// edge inward, growing the glyph outward from its distance-field contour.
+// 0.0 (the default, set per draw call in draw_centered_text) leaves normal
+// text untouched.
+uniform float boldness;
+
 void main() {
     float distance = texture2D(texture0, fragTexCoord).a;
     float smoothing = fwidth(distance);
-    float alpha = smoothstep(0.5 - smoothing, 0.5 + smoothing, distance);
+    float alpha = smoothstep(0.5 - boldness - smoothing, 0.5 - boldness + smoothing, distance);
     gl_FragColor = vec4(fragColor.rgb, fragColor.a * alpha) * colDiffuse;
 }
 )";
@@ -58,16 +66,43 @@ in vec4 fragColor;
 uniform sampler2D texture0;
 uniform vec4 colDiffuse;
 
+// See the GLSL ES 100 variant above for what this does.
+uniform float boldness;
+
 out vec4 finalColor;
 
 void main() {
     float distance = texture(texture0, fragTexCoord).a;
     float smoothing = fwidth(distance);
-    float alpha = smoothstep(0.5 - smoothing, 0.5 + smoothing, distance);
+    float alpha = smoothstep(0.5 - boldness - smoothing, 0.5 - boldness + smoothing, distance);
     finalColor = vec4(fragColor.rgb, fragColor.a * alpha) * colDiffuse;
 }
 )";
 #endif
+
+// Faux-bold/oblique fallback used only when TextRenderer::synth_bold /
+// synth_italic / synth_bold_italic_shear are set — i.e. only when the user
+// gave a custom --regular-font without a matching --bold-font/--italic-font
+// (see main.cpp) — never in the default, OS-detected-fonts path.
+//
+// Fraction of the SDF's distance-field range (0..1, 0.5 = the glyph's real
+// edge) the smoothstep threshold is shifted by to fake a heavier weight —
+// the standard "outline offset" trick for signed distance fields. Bounded by
+// how raylib bakes the atlas (rtext.c: FONT_SDF_CHAR_PADDING = 4px,
+// FONT_SDF_PIXEL_DIST_SCALE = 64 on a 0-255 value range): past ~0.5 the
+// gradient it encodes around the glyph edge is already exhausted and the
+// outline stops growing smoothly, showing up as speckled/dithered edges
+// instead. Tuned by eye (screenshot comparison against a real bold face) to
+// sit just under that ceiling — a clearly heavier weight, still clean; not
+// as heavy as a real bold face, which is the tradeoff of this whole
+// technique.
+constexpr float kSyntheticBoldAmount = 0.4f;
+
+// tan() of the oblique slant angle applied as a shear transform (see
+// draw_centered_text) when there's no real italic font to draw with — about
+// 12 degrees, in line with real italic fonts and browsers' synthetic
+// "oblique" fallback.
+constexpr float kSyntheticItalicShear = 0.21f;
 
 // Position/thickness of the strikethrough stroke, as a fraction of the font size.
 constexpr float kStrikeYFraction         = 0.55f;
@@ -192,13 +227,17 @@ struct PositionedImage {
 
 } // namespace
 
-TextRenderer load_text_renderer(const FontPaths &font_paths, float base_font_size, const std::string &emoji_font_path, const std::string &asian_font_path) {
+TextRenderer load_text_renderer(const FontPaths &font_paths, float base_font_size, const std::string &emoji_font_path, const std::string &asian_font_path, bool synth_bold, bool synth_italic, bool synth_bold_italic_shear) {
     TextRenderer renderer;
 
     renderer.font_paths      = font_paths;
     renderer.base_size       = static_cast<int>(base_font_size);
     renderer.emoji_font_path = validate_extra_font_path(emoji_font_path, "--emoji-font");
     renderer.asian_font_path = validate_extra_font_path(asian_font_path, "--asian-font");
+
+    renderer.synth_bold              = synth_bold;
+    renderer.synth_italic            = synth_italic;
+    renderer.synth_bold_italic_shear = synth_bold_italic_shear;
 
     renderer.bold_loaded        = false;
     renderer.italic_loaded      = false;
@@ -235,7 +274,8 @@ TextRenderer load_text_renderer(const FontPaths &font_paths, float base_font_siz
     renderer.fonts.emoji       = renderer.fonts.regular;
     renderer.fonts.asian       = renderer.fonts.regular;
 
-    renderer.sdf_shader = LoadShaderFromMemory(nullptr, kSdfFragmentShader);
+    renderer.sdf_shader       = LoadShaderFromMemory(nullptr, kSdfFragmentShader);
+    renderer.sdf_boldness_loc = GetShaderLocation(renderer.sdf_shader, "boldness");
 
     return renderer;
 }
@@ -680,7 +720,52 @@ void draw_centered_text(const TextRenderer &renderer, const TextLayoutResult &la
         // own background chip (also code_background_color) and the text would
         // disappear into it.
         Color run_color = (p.is_block_quote && !run.code) ? code_background_color : text_color;
+
+        // Faux-bold/oblique fallback (see kSyntheticBoldAmount/
+        // kSyntheticItalicShear and TextRenderer::synth_bold/synth_italic/
+        // synth_bold_italic_shear) — never applies to code/emoji/Asian runs:
+        // select_styled_font routes those to fonts.mono/emoji/asian
+        // regardless of run.bold/run.italic, and mono in particular isn't
+        // always an SDF atlas (raylib's built-in font when no --mono-font is
+        // given), so the shader's "boldness" uniform must stay at 0 for it.
+        bool stylable    = !run.code && run.kind != GlyphFontKind::Emoji && run.kind != GlyphFontKind::Asian;
+        bool apply_bold  = stylable && run.bold && renderer.synth_bold;
+        bool apply_shear = stylable && run.italic && (run.bold ? renderer.synth_bold_italic_shear : renderer.synth_italic);
+
+        // raylib batches glyph quads sharing the same texture+shader across
+        // draw calls, only actually issuing the GL draw (and binding
+        // whatever uniform value is current at that moment) on a flush —
+        // changing "boldness" doesn't trigger one by itself, so without this
+        // explicit flush every run since the last one that did change some
+        // batch-breaking state (texture/shader/blend mode) would retroactively
+        // pick up whichever boldness was set last, regardless of its own
+        // run.bold.
+        rlDrawRenderBatchActive();
+        float boldness = apply_bold ? kSyntheticBoldAmount : 0.0f;
+        SetShaderValue(renderer.sdf_shader, renderer.sdf_boldness_loc, &boldness, SHADER_UNIFORM_FLOAT);
+
+        if (apply_shear) {
+            // Shears around (p.x, p.y) — this run's own top-left draw
+            // position — rather than the screen origin, so the slant
+            // doesn't drag the run sideways by an amount that depends on
+            // its absolute position on the slide.
+            rlPushMatrix();
+            rlTranslatef(p.x, p.y, 0.0f);
+            float shear[16] = {
+                1.0f, 0.0f, 0.0f, 0.0f,
+                -kSyntheticItalicShear, 1.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 1.0f, 0.0f,
+                0.0f, 0.0f, 0.0f, 1.0f
+            };
+            rlMultMatrixf(shear);
+            rlTranslatef(-p.x, -p.y, 0.0f);
+        }
+
         DrawTextEx(font, run.text.c_str(), Vector2{ p.x, p.y }, p.font_size, spacing, run_color);
+
+        if (apply_shear) {
+            rlPopMatrix();
+        }
 
         if (run.strikethrough && run.width > 0.0f) {
             strikes.push_back(Rectangle{ p.x, p.y + p.font_size * kStrikeYFraction, run.width, p.font_size * kStrikeThicknessFraction });

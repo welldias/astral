@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <filesystem>
 #include <optional>
 #include <string>
 
@@ -166,24 +167,96 @@ int main(int argc, char **argv) {
 
     FontPaths font_paths = resolve_font_paths(config.bundled_font_path);
 
-    // User-chosen fonts (already validated above) take priority over
+    // A deck can ship its own default/bold/italic font next to its .md file
+    // (see platform/default_font.h::find_font_in_directory) — picked up
+    // automatically, with the same effect as the user having passed
+    // --regular-font/--bold-font/--italic-font pointing at it. An explicit
+    // flag always wins over the deck's own font, same file or not. Empty
+    // deck_dir (no document path, e.g. Emscripten before a file is opened)
+    // just means no lookup happens, same as a deck with no such files.
+    std::string deck_dir;
+    if (!args.source_path.empty()) {
+        deck_dir = std::filesystem::path(args.source_path).parent_path().string();
+        if (deck_dir.empty()) {
+            deck_dir = "."; // bare filename (e.g. "demo.md"): its directory is cwd
+        }
+    }
+    std::string effective_regular_font = !args.regular_font_path.empty() ? args.regular_font_path : find_font_in_directory(deck_dir, "default");
+    std::string effective_bold_font    = !args.bold_font_path.empty() ? args.bold_font_path : find_font_in_directory(deck_dir, "bold");
+    std::string effective_italic_font  = !args.italic_font_path.empty() ? args.italic_font_path : find_font_in_directory(deck_dir, "italic");
+
+    // Same deck-local lookup for --emoji-font/--asian-font — "emoji.ttf" and
+    // "unifont.ttf" specifically (not "asian.ttf": GNU Unifont, the usual
+    // choice for CJK/Hiragana/Katakana/Hangul coverage, is the name already
+    // used for this in demo/, so it doubles as the deck-local convention).
+    std::string effective_emoji_font = !args.emoji_font_path.empty() ? args.emoji_font_path : find_font_in_directory(deck_dir, "emoji");
+    std::string effective_asian_font = !args.asian_font_path.empty() ? args.asian_font_path : find_font_in_directory(deck_dir, "unifont");
+
+    // User-chosen (or deck-local, see above) fonts take priority over
     // whatever resolve_font_paths found on the operating system — applied
-    // per variant, independently: passing only --bold-font, say, leaves
-    // regular/italic/mono on the OS's own default. bold_italic is
-    // untouched: it has no dedicated flag (see cli/cli_args.h) and keeps
-    // following the OS/regular-font fallback exactly as resolve_font_paths
-    // already set it up.
-    if (!args.regular_font_path.empty()) {
-        font_paths.regular = args.regular_font_path;
+    // per variant, independently: only a bold font, say, leaves
+    // regular/italic/mono on the OS's own default.
+    //
+    // The regular one is different: once a specific custom face is in play
+    // for it, pairing it with whatever bold/italic happens to be installed
+    // on the OS would look inconsistent (different family entirely). So
+    // instead, any variant not also given its own real font is aliased to
+    // the custom regular font and synthesized at draw time instead
+    // (faux-bold via the SDF shader, synthetic oblique via a shear
+    // transform — see render/text_renderer.cpp's
+    // kSyntheticBoldAmount/kSyntheticItalicShear and
+    // TextRenderer::synth_bold/synth_italic/synth_bold_italic_shear).
+    // Without a custom regular font, none of this triggers and behavior is
+    // exactly as before: resolve_font_paths' own OS-fallback (aliasing to
+    // the system regular font, undecorated) stands.
+    bool custom_regular_font = !effective_regular_font.empty();
+    bool has_real_bold_font  = !effective_bold_font.empty();
+    bool has_real_italic_font = !effective_italic_font.empty();
+
+    if (custom_regular_font) {
+        font_paths.regular = effective_regular_font;
+        if (!has_real_italic_font) {
+            font_paths.italic = font_paths.regular;
+        }
+        if (!has_real_bold_font) {
+            font_paths.bold = font_paths.regular;
+        }
     }
-    if (!args.italic_font_path.empty()) {
-        font_paths.italic = args.italic_font_path;
+    if (has_real_italic_font) {
+        font_paths.italic = effective_italic_font;
     }
-    if (!args.bold_font_path.empty()) {
-        font_paths.bold = args.bold_font_path;
+    if (has_real_bold_font) {
+        font_paths.bold = effective_bold_font;
     }
     if (!args.mono_font_path.empty()) {
         font_paths.mono = args.mono_font_path;
+    }
+
+    // bold_italic has no dedicated CLI flag (see cli/cli_args.h): outside
+    // the custom-regular-font pipeline it keeps following the OS/regular
+    // fallback exactly as resolve_font_paths already set it up. Inside that
+    // pipeline, basing it on an unrelated system bold-italic face would be
+    // just as inconsistent as for bold/italic above, so it's anchored to
+    // whichever real face the user did supply instead — a real bold font
+    // takes priority as the base (only its slant then needs synthesizing;
+    // widening an already-bold weight further is unnecessary), then a real
+    // italic font (only its weight needs synthesizing), then the regular
+    // font itself (needs both).
+    bool synth_bold   = custom_regular_font && !has_real_bold_font;
+    bool synth_italic = custom_regular_font && !has_real_italic_font;
+    // fonts.bold_italic never uses the real italic file as its base unless
+    // there's no real bold font either — so it needs the shear fallback
+    // whenever a real bold font isn't already its base.
+    bool synth_bold_italic_shear = custom_regular_font && !(has_real_italic_font && !has_real_bold_font);
+
+    if (custom_regular_font) {
+        if (has_real_bold_font) {
+            font_paths.bold_italic = font_paths.bold;
+        } else if (has_real_italic_font) {
+            font_paths.bold_italic = font_paths.italic;
+        } else {
+            font_paths.bold_italic = font_paths.regular;
+        }
     }
 
     if (show_loading_progress) {
@@ -203,7 +276,7 @@ int main(int argc, char **argv) {
 #endif
     state->args             = args;
     state->config           = config;
-    state->renderer         = load_text_renderer(font_paths, config.font_atlas_base_size, args.emoji_font_path, args.asian_font_path);
+    state->renderer         = load_text_renderer(font_paths, config.font_atlas_base_size, effective_emoji_font, effective_asian_font, synth_bold, synth_italic, synth_bold_italic_shear);
     state->loop_entry_time  = GetTime();
 
     if (show_loading_progress) {

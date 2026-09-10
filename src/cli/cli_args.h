@@ -31,28 +31,41 @@ struct CliArgs {
 
     // Path to a dedicated font for drawing emoji / Asian-language
     // characters (CJK, Hiragana/Katakana, Hangul, ...) — see
-    // text/glyph_class.h::GlyphFontKind. Empty: no font was passed;
-    // characters in these categories fall back to the regular font, which
-    // doesn't have that glyph (shows up as '?', see raylib::GetGlyphIndex),
-    // and each one produces a warning on stderr the first time it appears
-    // (see render/text_renderer.h::ensure_extra_fonts_loaded). Loaded on
-    // demand, only if the document actually uses a character from the
-    // corresponding category (same scheme as bold/italic/mono in
+    // text/glyph_class.h::GlyphFontKind. Empty: no font was passed; main.cpp
+    // then looks for the deck's own "emoji"/"unifont".ttf|.otf next to its
+    // .md file (see platform/default_font.h::find_font_in_directory) —
+    // "unifont" rather than "asian" since GNU Unifont is the usual choice
+    // for this coverage. Neither given nor found: characters in these
+    // categories fall back to the regular font, which doesn't have that
+    // glyph (shows up as '?', see raylib::GetGlyphIndex), and each one
+    // produces a warning on stderr the first time it appears (see
+    // render/text_renderer.h::ensure_extra_fonts_loaded). Loaded on demand,
+    // only if the document actually uses a character from the corresponding
+    // category (same scheme as bold/italic/mono in
     // render/text_renderer.h::ensure_styles_loaded).
     std::string emoji_font_path;
     std::string asian_font_path;
 
     // Paths to user-chosen fonts for the regular/italic/bold/monospace
     // variants of the main text (see platform/default_font.h::FontPaths) —
-    // --regular-font/--italic-font/--bold-font/--mono-font. Empty: not given,
-    // Astral keeps looking up the operating system's own default font for
-    // that variant (the long-standing behavior, see resolve_font_paths).
-    // Given but pointing to a file that doesn't exist is a hard error (see
+    // --regular-font/--italic-font/--bold-font/--mono-font. Empty: not
+    // given; for regular/italic/bold, main.cpp then looks for the deck's own
+    // "default"/"italic"/"bold".ttf|.otf next to its .md file (see
+    // platform/default_font.h::find_font_in_directory) before finally
+    // falling back to the operating system's own default font for that
+    // variant (the long-standing behavior, see resolve_font_paths); mono has
+    // no such deck-local lookup, only the OS fallback. Given but pointing to
+    // a file that doesn't exist is a hard error (see
     // main.cpp) — unlike a missing OS font, there's no sensible fallback for
     // a font the user explicitly asked for by path. Doesn't cover
-    // bold-italic: that combination has no dedicated flag, it's still only
-    // ever resolved from the operating system (falling back to its own
-    // regular font).
+    // bold-italic: that combination has no dedicated flag; it's resolved
+    // from the operating system as before UNLESS --regular-font is given, in
+    // which case it's derived from whichever of --bold-font/--italic-font
+    // was also given (or the regular font itself), with the missing
+    // weight/slant synthesized at draw time instead of pulled from an
+    // unrelated system font (see main.cpp and
+    // render/text_renderer.h::TextRenderer::synth_bold/synth_italic/
+    // synth_bold_italic_shear).
     std::string regular_font_path;
     std::string italic_font_path;
     std::string bold_font_path;

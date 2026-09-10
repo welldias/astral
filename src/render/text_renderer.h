@@ -52,6 +52,32 @@ struct TextRenderer {
     bool mono_font_is_owned;
 
     Shader sdf_shader;
+    int sdf_boldness_loc; // GetShaderLocation(sdf_shader, "boldness"), cached once at load time
+
+    // Faux-bold/oblique fallback flags (see kSyntheticBoldAmount/
+    // kSyntheticItalicShear in text_renderer.cpp), set once in
+    // load_text_renderer from whether the caller gave a custom
+    // --regular-font without a matching --bold-font/--italic-font (see
+    // main.cpp) — never set when fonts come from the OS-detected default
+    // (resolve_font_paths), which keeps its long-standing behavior of
+    // drawing bold/italic text with the plain regular font when the OS has
+    // no distinct face for it.
+    //
+    // synth_bold: apply the bold fallback when drawing fonts.bold OR
+    // fonts.bold_italic (true in both cases whenever the "bold" slot itself
+    // isn't a real bold font — see main.cpp's font_paths.bold_italic
+    // selection, which always prefers a real bold file as its base when one
+    // is given).
+    // synth_italic: apply the oblique fallback when drawing fonts.italic
+    // (bold==false runs only).
+    // synth_bold_italic_shear: apply the oblique fallback when drawing
+    // fonts.bold_italic — independent from synth_italic, since
+    // fonts.bold_italic's base font is never the real italic file (bold
+    // takes priority as the base — see main.cpp), so it almost always still
+    // needs the shear even when a real --italic-font was given.
+    bool synth_bold;
+    bool synth_italic;
+    bool synth_bold_italic_shear;
 };
 
 // Loads only the regular font (SDF, smooth edges at any scale,
@@ -60,8 +86,11 @@ struct TextRenderer {
 // so as not to pay the cost of generating an SDF atlas when the content
 // doesn't use bold/italic/code/emoji/Asian characters. `emoji_font_path`/
 // `asian_font_path` come from --emoji-font/--asian-font (see cli/cli_args.h)
-// — empty when the corresponding parameter wasn't passed.
-TextRenderer load_text_renderer(const FontPaths &font_paths, float base_font_size, const std::string &emoji_font_path, const std::string &asian_font_path);
+// — empty when the corresponding parameter wasn't passed. `synth_bold`/
+// `synth_italic`/`synth_bold_italic_shear` are stored as-is on the returned
+// TextRenderer (see its fields above) — computed by main.cpp from which of
+// --regular-font/--bold-font/--italic-font were given.
+TextRenderer load_text_renderer(const FontPaths &font_paths, float base_font_size, const std::string &emoji_font_path, const std::string &asian_font_path, bool synth_bold, bool synth_italic, bool synth_bold_italic_shear);
 
 // Ensures each variant marked in `usage` is loaded, loading on demand
 // whichever is still missing (idempotent: already loaded doesn't reload).

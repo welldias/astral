@@ -2,6 +2,8 @@
 
 #include <raylib.h>
 
+#include <filesystem>
+
 #include "platform/log.h"
 
 namespace {
@@ -44,4 +46,17 @@ FontPaths resolve_font_paths(const std::string &bundled_font_path) {
     paths.mono = mono;
 
     return paths;
+}
+
+std::string find_font_in_directory(const std::string &dir, const std::string &base_name) {
+    if (dir.empty()) {
+        return std::string();
+    }
+    for (const char *ext : { "ttf", "otf" }) {
+        std::string candidate = (std::filesystem::path(dir) / (base_name + "." + ext)).string();
+        if (FileExists(candidate.c_str())) {
+            return candidate;
+        }
+    }
+    return std::string();
 }
