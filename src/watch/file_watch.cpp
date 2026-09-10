@@ -20,6 +20,15 @@ FileWatchState make_file_watch_state(const std::string &path) {
 }
 
 bool poll_file_watch(FileWatchState &state, double now) {
+#ifdef __EMSCRIPTEN__
+    // No external process can write into the virtual filesystem while the
+    // browser runtime is running (the only writer is astral_open_document,
+    // see platform/wasm_bridge.cpp, which already triggers a reload
+    // directly) — polling mtime here would never see a change.
+    (void)state;
+    (void)now;
+    return false;
+#else
     if (now - state.last_check_time < kPollIntervalSeconds) {
         return false;
     }
@@ -42,4 +51,5 @@ bool poll_file_watch(FileWatchState &state, double now) {
     state.pending_write_time = current_write_time;
     state.has_pending        = changed_since_last_reload;
     return false;
+#endif
 }

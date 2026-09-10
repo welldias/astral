@@ -4,18 +4,6 @@
 
 namespace {
 
-// ThemeKind (config/theme.h) and nixie_theme_name_t (nixie/nixie.h) name
-// the same 15 palettes, in the same order — this is a straight 1:1
-// mapping. Two cases have no nixie equivalent, both resolved to a
-// concrete nixie theme so ensure_mermaid_image_loaded always has *a*
-// palette to render with:
-//   - ThemeKind::CoffeeBean is an Astral-only theme (nixie has no
-//     matching palette) — mapped to NIXIE_THEME_SOLARIZED_LIGHT, since
-//     coffee-bean is itself a light/warm theme (background #F3E9DC, text
-//     #5E3023) and Solarized Light avoids light-on-light text.
-//   - No --theme given (`theme` is nullopt) — mapped to
-//     NIXIE_THEME_ZINC_DARK, the closest nixie palette to Astral's own
-//     default colors (background {18,18,20}, near-identical to zinc-dark).
 nixie_theme_name_t map_theme(std::optional<ThemeKind> theme) {
     if (!theme) {
         return NIXIE_THEME_ZINC_DARK;
@@ -51,12 +39,12 @@ nixie_theme_name_t map_theme(std::optional<ThemeKind> theme) {
     case ThemeKind::SolarizedDark:
         return NIXIE_THEME_SOLARIZED_DARK;
     case ThemeKind::OneDark:
-        return NIXIE_THEME_ONE_DARK;
+        return NIXIE_THEME_SOLARIZED_DARK;
     case ThemeKind::CoffeeBean:
-        return NINIE_THEM_COFFEE_BEAN;
+        return NIXIE_THEME_COFFEE_BEAN;
     }
 
-    return NIXIE_THEME_ZINC_DARK; // unreachable: silences -Wreturn-type on some compilers
+    return NIXIE_THEME_ZINC_DARK;
 }
 
 } // namespace

@@ -11,6 +11,41 @@
 
 namespace {
 
+// The default (non-pthread) Emscripten build has no real OS threads to hand
+// std::launch::async to — std::launch::deferred instead runs the task
+// synchronously, on the calling thread, the moment .get() is called below,
+// which is exactly the "load on demand, upload on the main thread" shape
+// this file already has, just without real parallelism. Native builds keep
+// the actual background rasterization.
+#ifdef __EMSCRIPTEN__
+constexpr std::launch kFontLoadLaunchPolicy = std::launch::deferred;
+#else
+constexpr std::launch kFontLoadLaunchPolicy = std::launch::async;
+#endif
+
+#ifdef __EMSCRIPTEN__
+// Same shader as below, in GLSL ES 100 (WebGL1/GLES2 — what raylib's
+// PLATFORM_WEB build targets): no texture()/in/out, precision qualifiers
+// required, gl_FragColor instead of a user-declared output.
+const char *kSdfFragmentShader = R"(
+#version 100
+#extension GL_OES_standard_derivatives : enable
+precision mediump float;
+
+varying vec2 fragTexCoord;
+varying vec4 fragColor;
+
+uniform sampler2D texture0;
+uniform vec4 colDiffuse;
+
+void main() {
+    float distance = texture2D(texture0, fragTexCoord).a;
+    float smoothing = fwidth(distance);
+    float alpha = smoothstep(0.5 - smoothing, 0.5 + smoothing, distance);
+    gl_FragColor = vec4(fragColor.rgb, fragColor.a * alpha) * colDiffuse;
+}
+)";
+#else
 // raylib's standard SDF shader: smoothstep over the distance, with the
 // smoothing computed via fwidth (screen-space derivatives) for sharp,
 // alias-free edges at any drawing scale.
@@ -32,6 +67,7 @@ void main() {
     finalColor = vec4(fragColor.rgb, fragColor.a * alpha) * colDiffuse;
 }
 )";
+#endif
 
 // Position/thickness of the strikethrough stroke, as a fraction of the font size.
 constexpr float kStrikeYFraction         = 0.55f;
@@ -229,7 +265,7 @@ void ensure_styles_loaded(TextRenderer &renderer, const StyleUsage &usage) {
             loaded_flag  = true;
             return;
         }
-        pending.push_back(PendingFontLoad{ std::async(std::launch::async, rasterize_sdf_font, path, renderer.base_size, codepoints_ready()), &out_font, &out_distinct, &loaded_flag });
+        pending.push_back(PendingFontLoad{ std::async(kFontLoadLaunchPolicy, rasterize_sdf_font, path, renderer.base_size, codepoints_ready()), &out_font, &out_distinct, &loaded_flag });
     };
 
     queue_variant(usage.bold, renderer.bold_loaded, renderer.font_paths.bold, renderer.fonts.bold, renderer.has_distinct_bold_font);
@@ -242,7 +278,7 @@ void ensure_styles_loaded(TextRenderer &renderer, const StyleUsage &usage) {
             renderer.mono_font_is_owned = false;
             renderer.mono_loaded        = true;
         } else {
-            pending.push_back(PendingFontLoad{ std::async(std::launch::async, rasterize_sdf_font, renderer.font_paths.mono, renderer.base_size, codepoints_ready()), &renderer.fonts.mono, &renderer.mono_font_is_owned, &renderer.mono_loaded });
+            pending.push_back(PendingFontLoad{ std::async(kFontLoadLaunchPolicy, rasterize_sdf_font, renderer.font_paths.mono, renderer.base_size, codepoints_ready()), &renderer.fonts.mono, &renderer.mono_font_is_owned, &renderer.mono_loaded });
         }
     }
 
@@ -314,14 +350,14 @@ void ensure_extra_fonts_loaded(TextRenderer &renderer, const CodepointUsage &usa
     if (reload_emoji) {
         renderer.emoji_codepoints_loaded.insert(usage.emoji_codepoints.begin(), usage.emoji_codepoints.end());
         std::vector<int> codepoints(renderer.emoji_codepoints_loaded.begin(), renderer.emoji_codepoints_loaded.end());
-        emoji_future = std::async(std::launch::async, rasterize_sdf_font, renderer.emoji_font_path, renderer.base_size, std::move(codepoints));
+        emoji_future = std::async(kFontLoadLaunchPolicy, rasterize_sdf_font, renderer.emoji_font_path, renderer.base_size, std::move(codepoints));
     }
 
     std::future<RasterizedFont> asian_future;
     if (reload_asian) {
         renderer.asian_codepoints_loaded.insert(usage.asian_codepoints.begin(), usage.asian_codepoints.end());
         std::vector<int> codepoints(renderer.asian_codepoints_loaded.begin(), renderer.asian_codepoints_loaded.end());
-        asian_future = std::async(std::launch::async, rasterize_sdf_font, renderer.asian_font_path, renderer.base_size, std::move(codepoints));
+        asian_future = std::async(kFontLoadLaunchPolicy, rasterize_sdf_font, renderer.asian_font_path, renderer.base_size, std::move(codepoints));
     }
 
     if (reload_emoji) {
